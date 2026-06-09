@@ -3,6 +3,7 @@
 Start here:
 
 - [Deployment Guide](./deployment.md) — Railway, Expo endpoints, Node/npm build fixes, release checklist.
+- [Integration Setup](./integrations.md) — Postgres, R2/S3, GPT Image 2, background removal, image processing.
 - [AI Model Router](./ai-model-router.md) — mock/openai/grok provider routing and model API safety boundary.
 - [Aegis Workspace](./aegis/README.md) — task-scoped design and planning notes.
 

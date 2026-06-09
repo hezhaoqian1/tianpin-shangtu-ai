@@ -2,6 +2,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import { handleAnalyzeRequest } from "./analyzeRoute";
 import { handleEditRequest } from "./editRoute";
+import { handleGenerateImageRequest, handleRemoveBackgroundRequest } from "./imageRoute";
+import { handleCreateUploadIntentRequest } from "./uploadRoute";
 
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001);
 const host = process.env.API_HOST ?? "0.0.0.0";
@@ -32,6 +34,27 @@ const server = createServer(async (request, response) => {
   if (request.method === "POST" && request.url === "/api/edit") {
     const body = await readJsonBody(request);
     const result = await handleEditRequest(body);
+    writeJson(response, result.status, result.body);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/api/uploads/presign") {
+    const body = await readJsonBody(request);
+    const result = await handleCreateUploadIntentRequest(body);
+    writeJson(response, result.status, result.body);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/api/images/generate") {
+    const body = await readJsonBody(request);
+    const result = await handleGenerateImageRequest(body);
+    writeJson(response, result.status, result.body);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/api/images/remove-background") {
+    const body = await readJsonBody(request);
+    const result = await handleRemoveBackgroundRequest(body);
     writeJson(response, result.status, result.body);
     return;
   }

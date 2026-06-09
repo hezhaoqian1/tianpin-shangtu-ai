@@ -98,7 +98,7 @@ async function analyzeWithOpenAI({
         },
         {
           role: "user",
-          content: [{ type: "input_text", text: userPrompt(uploads, platform) }]
+          content: openAiUserContent(uploads, platform)
         }
       ],
       text: {
@@ -167,10 +167,38 @@ function systemPrompt() {
 
 function userPrompt(uploads: UploadedAsset[], platform: Platform) {
   const uploadSummary = uploads
-    .map((asset, index) => `${index + 1}. ${asset.label} (${asset.width}x${asset.height}) uri=${asset.uri}`)
+    .map((asset, index) => {
+      const source = asset.remoteUrl ? `remoteUrl=${asset.remoteUrl}` : `uri=${asset.uri}`;
+      return `${index + 1}. ${asset.label} (${asset.width}x${asset.height}) ${source}`;
+    })
     .join("\n");
 
   return [`发布平台：${platform}`, "用户上传图片：", uploadSummary].join("\n");
+}
+
+type OpenAiInputContent =
+  | {
+      type: "input_text";
+      text: string;
+    }
+  | {
+      type: "input_image";
+      image_url: string;
+    };
+
+function openAiUserContent(uploads: UploadedAsset[], platform: Platform): OpenAiInputContent[] {
+  const content: OpenAiInputContent[] = [{ type: "input_text", text: userPrompt(uploads, platform) }];
+
+  for (const upload of uploads) {
+    if (upload.remoteUrl) {
+      content.push({
+        type: "input_image",
+        image_url: upload.remoteUrl
+      });
+    }
+  }
+
+  return content;
 }
 
 function productAnalysisJsonSchema() {

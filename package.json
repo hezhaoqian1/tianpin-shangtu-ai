@@ -10,28 +10,38 @@
     "start": "expo start",
     "web": "expo start --web",
     "api": "tsx src/server/devApiServer.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:studio": "prisma studio",
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1065.0",
+    "@aws-sdk/s3-request-presigner": "^3.1065.0",
     "@expo/metro-runtime": "^6.1.2",
+    "@prisma/client": "^7.8.0",
     "expo": "^54.0.0",
     "expo-image-picker": "~17.0.11",
     "expo-status-bar": "^3.0.8",
+    "pg": "^8.21.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-web": "^0.21.0",
+    "sharp": "^0.34.5",
     "tsx": "^4.22.4"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
+    "@types/pg": "^8.20.0",
     "@types/react": "~19.1.10",
     "@typescript-eslint/eslint-plugin": "^8.48.0",
     "@typescript-eslint/parser": "^8.48.0",
     "eslint": "^9.39.1",
     "eslint-config-expo": "^10.0.0",
+    "prisma": "^7.8.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.13"
   }

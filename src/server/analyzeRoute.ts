@@ -91,6 +91,8 @@ function parseAnalyzeBody(value: unknown): { ok: true; body: AnalyzeRouteBody } 
     uploads.push({
       id: uploadRecord.id,
       uri: uploadRecord.uri,
+      remoteUrl: optionalString(uploadRecord.remoteUrl),
+      mimeType: optionalString(uploadRecord.mimeType),
       label: uploadRecord.label,
       width: uploadRecord.width,
       height: uploadRecord.height
@@ -110,3 +112,6 @@ function isPlatform(value: unknown): value is Platform {
   return value === "xianyu" || value === "xiaohongshu" || value === "shop_main" || value === "wechat";
 }
 
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+}

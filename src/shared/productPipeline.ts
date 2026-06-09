@@ -4,6 +4,8 @@ export type ProductKind = "headphones" | "bag" | "shoes" | "keyboard";
 export type UploadedAsset = {
   id: string;
   uri: string;
+  remoteUrl?: string;
+  mimeType?: string;
   label: string;
   width: number;
   height: number;

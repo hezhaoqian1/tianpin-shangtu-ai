@@ -34,6 +34,7 @@ MODEL_PROVIDER=openai
 OPENAI_BASE_URL=https://api.apexpoc.com/v1
 OPENAI_API_KEY=replace-with-rotated-server-key
 OPENAI_MODEL=gpt-5-mini
+OPENAI_IMAGE_MODEL=gpt-image-2
 API_HOST=0.0.0.0
 ```
 
@@ -50,6 +51,32 @@ XAI_API_KEY=
 XAI_MODEL=grok-4.1-fast
 ```
 
+Optional Railway Postgres:
+
+```env
+DATABASE_URL=postgresql://...
+```
+
+Optional S3-compatible storage, such as Cloudflare R2:
+
+```env
+STORAGE_PROVIDER=s3
+STORAGE_BUCKET=
+STORAGE_REGION=auto
+STORAGE_ENDPOINT=
+STORAGE_ACCESS_KEY_ID=
+STORAGE_SECRET_ACCESS_KEY=
+STORAGE_PUBLIC_BASE_URL=
+```
+
+Optional background removal:
+
+```env
+BACKGROUND_REMOVAL_PROVIDER=mock
+REMOVEBG_API_KEY=
+PHOTOROOM_API_KEY=
+```
+
 Do not configure `EXPO_PUBLIC_*` variables on the Railway API service unless you are also building the frontend there. They are frontend variables.
 
 ## Expo App Variables
@@ -59,6 +86,9 @@ After Railway deploys, copy its public domain and create a local `.env`:
 ```env
 EXPO_PUBLIC_ANALYZE_ENDPOINT=https://your-service.up.railway.app/api/analyze
 EXPO_PUBLIC_EDIT_ENDPOINT=https://your-service.up.railway.app/api/edit
+EXPO_PUBLIC_UPLOAD_ENDPOINT=https://your-service.up.railway.app/api/uploads/presign
+EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT=https://your-service.up.railway.app/api/images/generate
+EXPO_PUBLIC_REMOVE_BACKGROUND_ENDPOINT=https://your-service.up.railway.app/api/images/remove-background
 ```
 
 For local API development:
@@ -66,6 +96,9 @@ For local API development:
 ```env
 EXPO_PUBLIC_ANALYZE_ENDPOINT=http://localhost:3001/api/analyze
 EXPO_PUBLIC_EDIT_ENDPOINT=http://localhost:3001/api/edit
+EXPO_PUBLIC_UPLOAD_ENDPOINT=http://localhost:3001/api/uploads/presign
+EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT=http://localhost:3001/api/images/generate
+EXPO_PUBLIC_REMOVE_BACKGROUND_ENDPOINT=http://localhost:3001/api/images/remove-background
 ```
 
 For real-device testing, replace `localhost` with the computer's LAN IP.
@@ -134,3 +167,4 @@ Before exposing to users:
 - Confirm `OPENAI_BASE_URL` supports the `/v1/responses` endpoint.
 - Confirm `/health` is green on Railway.
 - Point Expo `EXPO_PUBLIC_ANALYZE_ENDPOINT` and `EXPO_PUBLIC_EDIT_ENDPOINT` to the deployed Railway service.
+- Keep optional providers in `mock` mode until their keys are ready.

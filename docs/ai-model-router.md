@@ -11,6 +11,7 @@ mock
 openai
   Calls ${OPENAI_BASE_URL}/responses
   Uses server-side OPENAI_API_KEY
+  Sends remote upload URLs as input_image content when available.
   Expects structured JSON matching ProductAnalysis.
 
 grok
@@ -52,6 +53,20 @@ If the gateway only supports `/chat/completions`, this router needs a separate A
 
 Keep `MODEL_PROVIDER=mock` when network, model names, or keys are not confirmed. The app still demonstrates the full product flow because the editable canvas state is the source of truth.
 
+## Uploaded Images
+
+`UploadedAsset` supports optional `remoteUrl` and `mimeType` fields. The intended production path is:
+
+```text
+Expo image picker
+  -> POST /api/uploads/presign
+  -> PUT image to R2/S3
+  -> pass public remoteUrl into /api/analyze
+  -> modelRouter sends remoteUrl as input_image
+```
+
+Without `remoteUrl`, the router still sends text metadata so the product flow remains usable in mock and local demos.
+
 ## Integration Shape
 
 Local development API:
@@ -77,6 +92,9 @@ For deployed Railway:
 ```text
 EXPO_PUBLIC_ANALYZE_ENDPOINT=https://your-service.up.railway.app/api/analyze
 EXPO_PUBLIC_EDIT_ENDPOINT=https://your-service.up.railway.app/api/edit
+EXPO_PUBLIC_UPLOAD_ENDPOINT=https://your-service.up.railway.app/api/uploads/presign
+EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT=https://your-service.up.railway.app/api/images/generate
+EXPO_PUBLIC_REMOVE_BACKGROUND_ENDPOINT=https://your-service.up.railway.app/api/images/remove-background
 ```
 
 Core route adapter:

@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  email     String?  @unique
+  phone     String?  @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  uploads  UploadAsset[]
+  projects Project[]
+  jobs     GenerationJob[]
+}
+
+model UploadAsset {
+  id          String   @id
+  userId      String?
+  storageKey  String   @unique
+  publicUrl   String?
+  contentType String
+  width       Int?
+  height      Int?
+  byteLength  Int?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Project {
+  id        String   @id
+  userId    String?
+  platform  String
+  title     String
+  analysis  Json
+  pack      Json
+  uploads   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model GenerationJob {
+  id             String   @id
+  userId         String?
+  type           String
+  provider       String
+  status         String
+  input          Json
+  output         Json?
+  fallbackReason String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}

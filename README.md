@@ -17,6 +17,9 @@
 - 后端 API：
   - `POST /api/analyze`
   - `POST /api/edit`
+  - `POST /api/uploads/presign`
+  - `POST /api/images/generate`
+  - `POST /api/images/remove-background`
   - `GET /health`
 
 ## 本地运行
@@ -61,6 +64,9 @@ npm run api
 MODEL_PROVIDER=mock
 EXPO_PUBLIC_ANALYZE_ENDPOINT=
 EXPO_PUBLIC_EDIT_ENDPOINT=
+EXPO_PUBLIC_UPLOAD_ENDPOINT=
+EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT=
+EXPO_PUBLIC_REMOVE_BACKGROUND_ENDPOINT=
 API_PORT=3001
 API_HOST=0.0.0.0
 ```
@@ -70,6 +76,9 @@ API_HOST=0.0.0.0
 ```env
 EXPO_PUBLIC_ANALYZE_ENDPOINT=http://localhost:3001/api/analyze
 EXPO_PUBLIC_EDIT_ENDPOINT=http://localhost:3001/api/edit
+EXPO_PUBLIC_UPLOAD_ENDPOINT=http://localhost:3001/api/uploads/presign
+EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT=http://localhost:3001/api/images/generate
+EXPO_PUBLIC_REMOVE_BACKGROUND_ENDPOINT=http://localhost:3001/api/images/remove-background
 ```
 
 真机调试时，`localhost` 通常指手机自己，需要换成电脑局域网 IP。
@@ -89,7 +98,16 @@ MODEL_PROVIDER=openai
 OPENAI_BASE_URL=https://api.apexpoc.com/v1
 OPENAI_API_KEY=填新的服务端 key
 OPENAI_MODEL=gpt-5-mini
+OPENAI_IMAGE_MODEL=gpt-image-2
 API_HOST=0.0.0.0
+```
+
+Optional services are scaffolded and default to mock mode:
+
+```env
+DATABASE_URL=
+STORAGE_PROVIDER=mock
+BACKGROUND_REMOVAL_PROVIDER=mock
 ```
 
 如果 Railway 仍然选择 Node 18，在 Variables 里额外加：
@@ -103,6 +121,9 @@ NIXPACKS_NODE_VERSION=20
 ```env
 EXPO_PUBLIC_ANALYZE_ENDPOINT=https://你的-railway-域名/api/analyze
 EXPO_PUBLIC_EDIT_ENDPOINT=https://你的-railway-域名/api/edit
+EXPO_PUBLIC_UPLOAD_ENDPOINT=https://你的-railway-域名/api/uploads/presign
+EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT=https://你的-railway-域名/api/images/generate
+EXPO_PUBLIC_REMOVE_BACKGROUND_ENDPOINT=https://你的-railway-域名/api/images/remove-background
 ```
 
 更多部署说明见 [docs/deployment.md](./docs/deployment.md)。
@@ -134,4 +155,5 @@ curl http://127.0.0.1:3210/health
 
 - [AI model router](./docs/ai-model-router.md)
 - [Deployment guide](./docs/deployment.md)
+- [Integration setup](./docs/integrations.md)
 - [App-store product design](./docs/aegis/specs/2026-06-10-0x-clockwork-bird-app-store-design.md)

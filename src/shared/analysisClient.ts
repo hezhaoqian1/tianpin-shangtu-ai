@@ -49,6 +49,8 @@ export async function analyzeUploadsForApp({
         uploads: uploads.map((asset) => ({
           id: asset.id,
           uri: asset.uri,
+          remoteUrl: asset.remoteUrl,
+          mimeType: asset.mimeType,
           label: asset.label,
           width: asset.width,
           height: asset.height
@@ -145,4 +147,3 @@ function toBbox(value: unknown): [number, number, number, number] {
 
   return values as [number, number, number, number];
 }
-

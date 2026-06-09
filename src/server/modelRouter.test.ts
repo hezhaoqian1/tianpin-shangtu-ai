@@ -76,6 +76,27 @@ describe("model router", () => {
     expect(url).toBe("https://api.apexpoc.com/v1/responses");
   });
 
+  it("adds remote product images to OpenAI vision content", async () => {
+    const uploads = createSampleUploads("headphones").map((upload, index) => ({
+      ...upload,
+      remoteUrl: `https://cdn.example.com/product-${index + 1}.jpg`
+    }));
+    const fetcher = vi.fn<Fetcher>(async () => jsonResponse(openAiPayload()));
+
+    await analyzeProductWithModel({
+      uploads,
+      platform: "xianyu",
+      config: createModelRouterConfig({ provider: "openai", openaiApiKey: "sk-test" }),
+      fetcher
+    });
+
+    const [, request] = fetcher.mock.calls[0]!;
+    const body = JSON.parse(request.body);
+    const userContent = body.input[1].content;
+    expect(userContent.filter((part: { type: string }) => part.type === "input_image")).toHaveLength(4);
+    expect(userContent[1].image_url).toBe("https://cdn.example.com/product-1.jpg");
+  });
+
   it("sends Grok chat completion requests with xAI bearer auth", async () => {
     const uploads = createSampleUploads("headphones");
     const fetcher = vi.fn<Fetcher>(async () => jsonResponse(xaiPayload()));
