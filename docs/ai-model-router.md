@@ -21,7 +21,7 @@ grok
 
 ## Environment
 
-Copy `.env.example` into the server runtime environment:
+Copy `.env.example` into the server runtime environment. For a local mock run:
 
 ```text
 MODEL_PROVIDER=mock
@@ -32,14 +32,25 @@ XAI_API_KEY=
 XAI_MODEL=grok-4.1-fast
 ```
 
-For OpenAI-compatible gateways, set `OPENAI_BASE_URL` to the provider's `/v1`
-base URL, for example:
+For Railway with an OpenAI-compatible gateway:
 
 ```text
+MODEL_PROVIDER=openai
 OPENAI_BASE_URL=https://api.apexpoc.com/v1
+OPENAI_API_KEY=replace-with-rotated-server-key
+OPENAI_MODEL=gpt-5-mini
+API_HOST=0.0.0.0
 ```
 
-For interview demos, keep `MODEL_PROVIDER=mock` unless the network and keys are confirmed. The app still demonstrates the full product flow because the editable canvas state is the source of truth.
+The gateway must support the Responses-style route:
+
+```text
+POST ${OPENAI_BASE_URL}/responses
+```
+
+If the gateway only supports `/chat/completions`, this router needs a separate API-style branch before real calls will work.
+
+Keep `MODEL_PROVIDER=mock` when network, model names, or keys are not confirmed. The app still demonstrates the full product flow because the editable canvas state is the source of truth.
 
 ## Integration Shape
 
@@ -51,12 +62,21 @@ npm run api
 
 Railway should use `npm run api` as the service start command. The API server
 listens on Railway's injected `PORT` first, then falls back to local `API_PORT`.
+The repo also includes `railway.toml` with `startCommand = "npm run api"` and
+`healthcheckPath = "/health"`.
 
 Then point the mobile app at it:
 
 ```text
 EXPO_PUBLIC_ANALYZE_ENDPOINT=http://localhost:3001/api/analyze
 EXPO_PUBLIC_EDIT_ENDPOINT=http://localhost:3001/api/edit
+```
+
+For deployed Railway:
+
+```text
+EXPO_PUBLIC_ANALYZE_ENDPOINT=https://your-service.up.railway.app/api/analyze
+EXPO_PUBLIC_EDIT_ENDPOINT=https://your-service.up.railway.app/api/edit
 ```
 
 Core route adapter:
@@ -74,6 +94,13 @@ Return `result.analysis` to the mobile app, then generate publish packs through 
 ## Safety Boundary
 
 - No provider API key in Expo code.
+- No real key in `.env.example`, README, tests, screenshots, or commits.
 - Missing keys automatically fall back to `mock`.
 - Request failures automatically fall back to `mock`.
 - Product diagnosis must preserve truthfulness warnings and avoid hiding flaws.
+
+## Troubleshooting
+
+- `npm ci` fails on Railway with missing `@emnapi/*`: regenerate `package-lock.json` with `npx npm@10.8.2 install --package-lock-only`, then verify with `npx npm@10.8.2 ci`.
+- Railway uses Node 18: this repo pins Node 20 through `.nvmrc` and `package.json` `engines.node`; if needed, set `NIXPACKS_NODE_VERSION=20`.
+- API deploys but health check fails: confirm `tsx` is in `dependencies`, `railway.toml` points to `npm run api`, and `/health` returns `{"ok":true}` locally.
