@@ -172,10 +172,12 @@ Purpose:
 - Compress uploads before analysis.
 - Create thumbnails.
 - Normalize image format and size.
+- Render publish canvases to PNG on the server.
 
 Code:
 
 - `src/server/imageProcessing.ts`
+- `src/server/canvasRenderer.ts`
 
 Dependency:
 
@@ -185,7 +187,16 @@ sharp
 
 This is ready for the next step where uploads are proxied through the API instead of direct-to-storage presigned upload.
 
-## 7. Expo Public Endpoints
+## 7. Mobile Canvas / Skia
+
+`@shopify/react-native-skia` is the likely mobile canvas dependency when we need high-performance on-device rendering and export. It is not installed yet because the latest package requires `react-native-reanimated` as a peer dependency, which changes the Expo native surface.
+
+Current decision:
+
+- P0: use the existing React Native preview canvas plus server-side `sharp` rendering.
+- P1: add Skia together with `react-native-reanimated` when mobile export quality becomes the blocker.
+
+## 8. Expo Public Endpoints
 
 Expo receives only public API URLs:
 
