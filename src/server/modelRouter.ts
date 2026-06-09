@@ -9,6 +9,7 @@ export type ModelProvider = "mock" | "openai" | "grok";
 
 export type ModelRouterConfig = {
   provider: ModelProvider;
+  openaiBaseUrl: string;
   openaiApiKey?: string;
   openaiModel: string;
   xaiApiKey?: string;
@@ -33,11 +34,11 @@ export type AnalyzeProductResult = {
 export function createModelRouterConfig(overrides: Partial<ModelRouterConfig> = {}): ModelRouterConfig {
   return {
     provider: overrides.provider ?? readProvider(),
+    openaiBaseUrl: normalizeBaseUrl(overrides.openaiBaseUrl ?? readEnv("OPENAI_BASE_URL")) ?? "https://api.openai.com/v1",
     openaiApiKey: overrides.openaiApiKey ?? readEnv("OPENAI_API_KEY"),
     openaiModel: overrides.openaiModel ?? readEnv("OPENAI_MODEL") ?? "gpt-5-mini",
     xaiApiKey: overrides.xaiApiKey ?? readEnv("XAI_API_KEY"),
-    xaiModel: overrides.xaiModel ?? readEnv("XAI_MODEL") ?? "grok-4.1-fast",
-    ...overrides
+    xaiModel: overrides.xaiModel ?? readEnv("XAI_MODEL") ?? "grok-4.1-fast"
   };
 }
 
@@ -82,7 +83,7 @@ async function analyzeWithOpenAI({
   config,
   fetcher
 }: Required<Pick<AnalyzeProductParams, "uploads" | "platform" | "config">> & { fetcher: Fetcher }) {
-  const response = await fetcher("https://api.openai.com/v1/responses", {
+  const response = await fetcher(`${config.openaiBaseUrl}/responses`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${config.openaiApiKey}`,
@@ -346,3 +347,11 @@ function readEnv(name: string): string | undefined {
   return env.process?.env?.[name];
 }
 
+function normalizeBaseUrl(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return trimmed.replace(/\/+$/, "");
+}

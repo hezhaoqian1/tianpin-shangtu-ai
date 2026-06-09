@@ -36,7 +36,7 @@ export function createGuestSession(): UserSession {
 export function createDemoUserSession(): UserSession {
   return {
     kind: "user",
-    id: "demo_seller_account",
+    id: "seller_account_local",
     remainingFreePacks: 12,
     canExportStandard: true,
     canSaveHistory: true

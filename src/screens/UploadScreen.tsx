@@ -37,7 +37,7 @@ export function UploadScreen({
     <Screen
       eyebrow={platformLabels[platform]}
       title="先放入商品照片"
-      subtitle="可以直接从相册选择 3-8 张商品图；现场演示也可以使用稳定样例图。"
+      subtitle="可以直接从相册选择 3-8 张商品图；也可以先用示例商品体验完整链路。"
     >
       <View style={styles.dropZone}>
         <Text style={styles.dropTitle}>选择商品照片</Text>
@@ -76,7 +76,7 @@ export function UploadScreen({
         <Button label={isAnalyzing ? "诊断中" : "选相册图"} onPress={onPickGallery} style={styles.actionButton} />
       </View>
       <Button label={isAnalyzing ? "正在生成诊断" : "使用样例图"} variant="secondary" onPress={onUseSample} />
-      <Text style={styles.hint}>样例图会模拟耳机商品，适合面试现场稳定演示完整链路。</Text>
+      <Text style={styles.hint}>示例商品会生成一套耳机发布包，方便先熟悉流程。</Text>
     </Screen>
   );
 }

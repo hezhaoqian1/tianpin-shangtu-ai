@@ -58,6 +58,25 @@ describe("edit command router", () => {
     expect(result.command.copy?.primaryTitle).toBe("AI 改短标题");
   });
 
+  it("supports an OpenAI-compatible base URL for edit commands", async () => {
+    const fetcher = vi.fn<Fetcher>(async () => jsonResponse(openAiEditPayload()));
+
+    await createEditCommandWithModel({
+      pack,
+      userMessage: "标题短一点",
+      config: createModelRouterConfig({
+        provider: "openai",
+        openaiBaseUrl: "https://api.apexpoc.com/v1/",
+        openaiApiKey: "sk-test",
+        openaiModel: "gpt-5-mini"
+      }),
+      fetcher
+    });
+
+    const [url] = fetcher.mock.calls[0]!;
+    expect(url).toBe("https://api.apexpoc.com/v1/responses");
+  });
+
   it("sends Grok chat completion requests for edit commands", async () => {
     const fetcher = vi.fn<Fetcher>(async () => jsonResponse(xaiEditPayload()));
 
@@ -120,4 +139,3 @@ function xaiEditPayload() {
     ]
   };
 }
-

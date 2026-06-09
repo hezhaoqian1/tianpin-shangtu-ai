@@ -36,12 +36,12 @@ export function DiagnosisScreen({
     <Screen
       eyebrow="商品诊断"
       title={analysis.productName}
-      subtitle="AI 先做质检报告，再生成发布资产包。真实模式默认开启。"
+      subtitle="AI 先做质检报告，再生成发布资产包。默认保留真实成色和可见瑕疵。"
     >
       <View style={styles.statRow}>
         <Stat label="素材" value={`${uploads.length} 张`} />
         <Stat label="成色" value={analysis.condition.label} />
-        <Stat label={analysisSource === "remote" ? "远端 AI" : "本地演示"} value={`${Math.round(analysis.condition.confidence * 100)}%`} />
+        <Stat label={analysisSource === "remote" ? "远端 AI" : "快速模式"} value={`${Math.round(analysis.condition.confidence * 100)}%`} />
       </View>
 
       <View style={styles.aiStatusPanel}>

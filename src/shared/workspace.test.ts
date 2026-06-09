@@ -53,7 +53,7 @@ describe("workspace history", () => {
     if (result.status !== "saved") {
       throw new Error("expected saved project");
     }
-    expect(result.project.item.id).toBe("demo_seller_account_pack_authentic");
+    expect(result.project.item.id).toBe("seller_account_local_pack_authentic");
     expect(result.project.pack.id).toBe(pack.id);
     expect(result.project.analysis.productName).toBe(analysis.productName);
     expect(result.project.uploads).toHaveLength(4);

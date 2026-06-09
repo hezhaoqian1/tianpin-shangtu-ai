@@ -77,7 +77,7 @@ export function ExportScreen({
             </Text>
           </View>
           <View style={styles.accountBadge}>
-            <Text style={styles.accountBadgeText}>{session.kind === "guest" ? "游客" : "Demo"}</Text>
+            <Text style={styles.accountBadgeText}>{session.kind === "guest" ? "游客" : "已登录"}</Text>
           </View>
         </View>
         <View style={styles.benefits}>
@@ -103,7 +103,7 @@ export function ExportScreen({
         <Text style={styles.accountFootnote}>
           {saveMessage ??
             localExportMessage ??
-            (session.kind === "guest" ? highResPrompt.body : "当前 demo 会把作品保存在本机内存，生产版接 Supabase。")}
+            (session.kind === "guest" ? highResPrompt.body : "当前作品保存在本机内存，上线版会同步到云端作品库。")}
         </Text>
       </View>
 

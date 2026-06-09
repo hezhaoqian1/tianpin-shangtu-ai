@@ -56,6 +56,26 @@ describe("model router", () => {
     expect(result.analysis.productName).toBe("AI 识别耳机");
   });
 
+  it("supports an OpenAI-compatible base URL", async () => {
+    const uploads = createSampleUploads("headphones");
+    const fetcher = vi.fn<Fetcher>(async () => jsonResponse(openAiPayload()));
+
+    await analyzeProductWithModel({
+      uploads,
+      platform: "xianyu",
+      config: createModelRouterConfig({
+        provider: "openai",
+        openaiBaseUrl: "https://api.apexpoc.com/v1/",
+        openaiApiKey: "sk-test",
+        openaiModel: "gpt-5-mini"
+      }),
+      fetcher
+    });
+
+    const [url] = fetcher.mock.calls[0]!;
+    expect(url).toBe("https://api.apexpoc.com/v1/responses");
+  });
+
   it("sends Grok chat completion requests with xAI bearer auth", async () => {
     const uploads = createSampleUploads("headphones");
     const fetcher = vi.fn<Fetcher>(async () => jsonResponse(xaiPayload()));

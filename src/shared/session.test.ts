@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createDemoUserSession, createGuestSession, getLoginPromptCopy, shouldPromptForLogin } from "./session";
 
 describe("guest session policy", () => {
-  it("creates a guest session that can run the first demo flow", () => {
+  it("creates a guest session that can run the first local flow", () => {
     const session = createGuestSession();
 
     expect(session.kind).toBe("guest");
@@ -18,7 +18,7 @@ describe("guest session policy", () => {
     expect(shouldPromptForLogin("high_res_export", createGuestSession())).toBe(true);
   });
 
-  it("creates a demo user session that unlocks durable workspace actions", () => {
+  it("creates a signed-in seller session that unlocks durable workspace actions", () => {
     const session = createDemoUserSession();
 
     expect(session.kind).toBe("user");

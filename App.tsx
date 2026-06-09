@@ -3,12 +3,18 @@ import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import { SafeAreaView, StyleSheet, View } from "react-native";
 
+import { AccountScreen } from "./src/screens/AccountScreen";
+import { AuthScreen } from "./src/screens/AuthScreen";
+import { CreateScreen } from "./src/screens/CreateScreen";
+import { DashboardScreen } from "./src/screens/DashboardScreen";
 import { DiagnosisScreen } from "./src/screens/DiagnosisScreen";
 import { EditorScreen } from "./src/screens/EditorScreen";
 import { ExportScreen } from "./src/screens/ExportScreen";
-import { HomeScreen } from "./src/screens/HomeScreen";
+import { LaunchScreen } from "./src/screens/LaunchScreen";
 import { PackSelectScreen } from "./src/screens/PackSelectScreen";
+import { TemplateGalleryScreen } from "./src/screens/TemplateGalleryScreen";
 import { UploadScreen } from "./src/screens/UploadScreen";
+import { WorksScreen } from "./src/screens/WorksScreen";
 import { analyzeUploadsForApp, type AppAnalysisSource } from "./src/shared/analysisClient";
 import { normalizeEditPrompt } from "./src/shared/editConversation";
 import { createEditCommandForApp, type AppEditSource } from "./src/shared/editClient";
@@ -23,15 +29,21 @@ import {
   type UploadedAsset
 } from "./src/shared/productPipeline";
 import { createDemoUserSession, createGuestSession, type UserSession } from "./src/shared/session";
+import { type SellerTemplate } from "./src/shared/templateStrategy";
 import { createSavedProjectFromPack, type SavedProject } from "./src/shared/workspace";
+import { AppShell, type MainTab } from "./src/ui/AppShell";
 import { palette } from "./src/ui/theme";
 
-type Step = "home" | "upload" | "diagnosis" | "packs" | "editor" | "export";
+type FlowStep = "idle" | "upload" | "diagnosis" | "packs" | "editor" | "export";
+
 const analyzeEndpoint = process.env.EXPO_PUBLIC_ANALYZE_ENDPOINT ?? "";
 const editEndpoint = process.env.EXPO_PUBLIC_EDIT_ENDPOINT ?? "";
 
 export default function App() {
-  const [step, setStep] = useState<Step>("home");
+  const [launchComplete, setLaunchComplete] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeTab, setActiveTab] = useState<MainTab>("dashboard");
+  const [flowStep, setFlowStep] = useState<FlowStep>("idle");
   const [platform, setPlatform] = useState<Platform>("xianyu");
   const [uploads, setUploads] = useState<UploadedAsset[]>([]);
   const [analysis, setAnalysis] = useState<ProductAnalysis | null>(null);
@@ -48,13 +60,23 @@ export default function App() {
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [exportSaveMessage, setExportSaveMessage] = useState<string | null>(null);
 
-  const progress = useMemo(() => {
-    const order: Step[] = ["home", "upload", "diagnosis", "packs", "editor", "export"];
-    return order.indexOf(step) / (order.length - 1);
-  }, [step]);
+  const flowProgress = useMemo(() => {
+    if (flowStep === "idle") {
+      return 0;
+    }
 
-  function startFlow(nextPlatform: Platform) {
-    setPlatform(nextPlatform);
+    const order: FlowStep[] = ["upload", "diagnosis", "packs", "editor", "export"];
+    return order.indexOf(flowStep) / (order.length - 1);
+  }, [flowStep]);
+
+  function completeAuth() {
+    setSession(createDemoUserSession());
+    setIsAuthenticated(true);
+    setActiveTab("dashboard");
+    setFlowStep("idle");
+  }
+
+  function resetDraft() {
     setUploads([]);
     setAnalysis(null);
     setPacks([]);
@@ -67,7 +89,22 @@ export default function App() {
     setEditSource(undefined);
     setEditFallbackReason(undefined);
     setExportSaveMessage(null);
-    setStep("upload");
+  }
+
+  function startFlow(nextPlatform: Platform) {
+    setPlatform(nextPlatform);
+    resetDraft();
+    setActiveTab("create");
+    setFlowStep("upload");
+  }
+
+  function useTemplate(template: SellerTemplate) {
+    startFlow(template.platform);
+  }
+
+  function returnToMain(nextTab: MainTab = "dashboard") {
+    setFlowStep("idle");
+    setActiveTab(nextTab);
   }
 
   async function runAnalysis(nextUploads: UploadedAsset[]) {
@@ -87,7 +124,7 @@ export default function App() {
     setAnalysisSource(result.source);
     setAnalysisFallbackReason(result.fallbackReason);
     setIsAnalyzing(false);
-    setStep("diagnosis");
+    setFlowStep("diagnosis");
   }
 
   async function analyzeSampleUploads() {
@@ -110,7 +147,7 @@ export default function App() {
 
       await runAnalysis(mapPickedImagesToUploads(result.assets).slice(0, 8));
     } catch {
-      setUploadError("相册选择暂时不可用，可以先用样例图跑完整演示。");
+      setUploadError("相册选择暂时不可用，可以先用样例图跑完整链路。");
       setIsAnalyzing(false);
     }
   }
@@ -120,7 +157,7 @@ export default function App() {
     setEditSource(undefined);
     setEditFallbackReason(undefined);
     setExportSaveMessage(null);
-    setStep("editor");
+    setFlowStep("editor");
   }
 
   async function applyDemoEdit(userMessage: string) {
@@ -146,11 +183,6 @@ export default function App() {
     setIsEditing(false);
   }
 
-  function signInDemoAccount() {
-    setSession(createDemoUserSession());
-    setExportSaveMessage("已进入 demo 账号，可以保存历史、高清导出和复用风格。");
-  }
-
   function saveCurrentProject() {
     if (!selectedPack || !analysis) {
       return;
@@ -172,7 +204,7 @@ export default function App() {
       result.project,
       ...projects.filter((project) => project.item.id !== result.project.item.id)
     ]);
-    setExportSaveMessage("已保存到历史作品，回到首页可以看到它。");
+    setExportSaveMessage("已保存到作品库，后续可以继续编辑或复用风格。");
   }
 
   function openSavedProject(projectId: string) {
@@ -191,79 +223,136 @@ export default function App() {
     setEditSource(project.pack.history.length > 0 ? "mock" : undefined);
     setEditFallbackReason(undefined);
     setExportSaveMessage("已打开历史作品，可以继续编辑或重新导出。");
-    setStep("export");
+    setActiveTab("works");
+    setFlowStep("export");
+  }
+
+  function logout() {
+    resetDraft();
+    setSavedProjects([]);
+    setSession(createGuestSession());
+    setIsAuthenticated(false);
+    setActiveTab("dashboard");
+    setFlowStep("idle");
+  }
+
+  function renderFlow() {
+    return (
+      <View style={styles.flowShell}>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${Math.max(8, flowProgress * 100)}%` }]} />
+        </View>
+        {flowStep === "upload" ? (
+          <UploadScreen
+            platform={platform}
+            uploadError={uploadError}
+            isAnalyzing={isAnalyzing}
+            onBack={() => returnToMain("create")}
+            onPickGallery={pickGalleryImages}
+            onUseSample={analyzeSampleUploads}
+          />
+        ) : null}
+        {flowStep === "diagnosis" && analysis ? (
+          <DiagnosisScreen
+            analysis={analysis}
+            analysisSource={analysisSource}
+            analysisFallbackReason={analysisFallbackReason}
+            endpointConfigured={Boolean(analyzeEndpoint)}
+            uploads={uploads}
+            onBack={() => setFlowStep("upload")}
+            onContinue={() => setFlowStep("packs")}
+          />
+        ) : null}
+        {flowStep === "packs" ? (
+          <PackSelectScreen packs={packs} uploads={uploads} onBack={() => setFlowStep("diagnosis")} onSelect={choosePack} />
+        ) : null}
+        {flowStep === "editor" && selectedPack ? (
+          <EditorScreen
+            pack={selectedPack}
+            uploads={uploads}
+            onBack={() => setFlowStep("packs")}
+            isEditing={isEditing}
+            editSource={editSource}
+            editFallbackReason={editFallbackReason}
+            editEndpointConfigured={Boolean(editEndpoint)}
+            onApplyEdit={applyDemoEdit}
+            onExport={() => setFlowStep("export")}
+          />
+        ) : null}
+        {flowStep === "export" && selectedPack ? (
+          <ExportScreen
+            pack={selectedPack}
+            uploads={uploads}
+            session={session}
+            saveMessage={exportSaveMessage}
+            onLogin={completeAuth}
+            onSaveProject={saveCurrentProject}
+            onBack={() => setFlowStep("editor")}
+            onRestart={() => returnToMain("dashboard")}
+          />
+        ) : null}
+      </View>
+    );
+  }
+
+  function renderTab() {
+    if (activeTab === "templates") {
+      return <TemplateGalleryScreen onUseTemplate={useTemplate} />;
+    }
+
+    if (activeTab === "create") {
+      return <CreateScreen onStart={startFlow} onUseTemplate={useTemplate} />;
+    }
+
+    if (activeTab === "works") {
+      return <WorksScreen historyItems={savedProjects.map((project) => project.item)} onOpenHistory={openSavedProject} onStart={startFlow} />;
+    }
+
+    if (activeTab === "account") {
+      return <AccountScreen session={session} onLogout={logout} />;
+    }
+
+    return (
+      <DashboardScreen
+        session={session}
+        historyItems={savedProjects.map((project) => project.item)}
+        onOpenHistory={openSavedProject}
+        onStart={startFlow}
+        onUseTemplate={useTemplate}
+      />
+    );
   }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="dark" />
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${Math.max(8, progress * 100)}%` }]} />
+      <View style={styles.phoneFrame}>
+        {!launchComplete ? <LaunchScreen onDone={() => setLaunchComplete(true)} /> : null}
+        {launchComplete && !isAuthenticated ? <AuthScreen onComplete={completeAuth} /> : null}
+        {launchComplete && isAuthenticated && flowStep !== "idle" ? renderFlow() : null}
+        {launchComplete && isAuthenticated && flowStep === "idle" ? (
+          <AppShell activeTab={activeTab} onSelectTab={setActiveTab}>
+            {renderTab()}
+          </AppShell>
+        ) : null}
       </View>
-      {step === "home" ? (
-        <HomeScreen
-          session={session}
-          historyItems={savedProjects.map((project) => project.item)}
-          onLogin={signInDemoAccount}
-          onOpenHistory={openSavedProject}
-          onStart={startFlow}
-        />
-      ) : null}
-      {step === "upload" ? (
-        <UploadScreen
-          platform={platform}
-          uploadError={uploadError}
-          isAnalyzing={isAnalyzing}
-          onBack={() => setStep("home")}
-          onPickGallery={pickGalleryImages}
-          onUseSample={analyzeSampleUploads}
-        />
-      ) : null}
-      {step === "diagnosis" && analysis ? (
-        <DiagnosisScreen
-          analysis={analysis}
-          analysisSource={analysisSource}
-          analysisFallbackReason={analysisFallbackReason}
-          endpointConfigured={Boolean(analyzeEndpoint)}
-          uploads={uploads}
-          onBack={() => setStep("upload")}
-          onContinue={() => setStep("packs")}
-        />
-      ) : null}
-      {step === "packs" ? (
-        <PackSelectScreen packs={packs} uploads={uploads} onBack={() => setStep("diagnosis")} onSelect={choosePack} />
-      ) : null}
-      {step === "editor" && selectedPack ? (
-        <EditorScreen
-          pack={selectedPack}
-          uploads={uploads}
-          onBack={() => setStep("packs")}
-          isEditing={isEditing}
-          editSource={editSource}
-          editFallbackReason={editFallbackReason}
-          editEndpointConfigured={Boolean(editEndpoint)}
-          onApplyEdit={applyDemoEdit}
-          onExport={() => setStep("export")}
-        />
-      ) : null}
-      {step === "export" && selectedPack ? (
-        <ExportScreen
-          pack={selectedPack}
-          uploads={uploads}
-          session={session}
-          saveMessage={exportSaveMessage}
-          onLogin={signInDemoAccount}
-          onSaveProject={saveCurrentProject}
-          onBack={() => setStep("editor")}
-          onRestart={() => setStep("home")}
-        />
-      ) : null}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
+    flex: 1,
+    backgroundColor: "#151714"
+  },
+  phoneFrame: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    backgroundColor: palette.paper
+  },
+  flowShell: {
     flex: 1,
     backgroundColor: palette.paper
   },

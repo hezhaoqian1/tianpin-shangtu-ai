@@ -3,7 +3,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { handleAnalyzeRequest } from "./analyzeRoute";
 import { handleEditRequest } from "./editRoute";
 
-const port = Number(process.env.API_PORT ?? 3001);
+const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001);
+const host = process.env.API_HOST ?? "0.0.0.0";
 
 const server = createServer(async (request, response) => {
   response.setHeader("Access-Control-Allow-Origin", "*");
@@ -38,8 +39,8 @@ const server = createServer(async (request, response) => {
   writeJson(response, 404, { error: "not_found" });
 });
 
-server.listen(port, () => {
-  console.log(`Analyze API listening on http://localhost:${port}`);
+server.listen(port, host, () => {
+  console.log(`Analyze API listening on http://${host}:${port}`);
 });
 
 function writeJson(response: ServerResponse, status: number, body: unknown) {

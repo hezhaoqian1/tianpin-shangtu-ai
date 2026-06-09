@@ -3,14 +3,14 @@ import { describe, expect, it } from "vitest";
 import { getAnalysisStatus } from "./aiStatus";
 
 describe("AI status copy", () => {
-  it("explains local demo mode when no endpoint is configured", () => {
+  it("explains local fast mode when no endpoint is configured", () => {
     const status = getAnalysisStatus({
       source: "mock",
       endpointConfigured: false
     });
 
-    expect(status.label).toBe("本地演示");
-    expect(status.title).toBe("稳定 mock 流程");
+    expect(status.label).toBe("快速模式");
+    expect(status.title).toBe("本机快速诊断");
     expect(status.detail).toContain("不依赖网络");
     expect(status.securityNote).toBe("移动端不保存 OpenAI/Grok API Key。");
   });
@@ -33,8 +33,8 @@ describe("AI status copy", () => {
       fallbackReason: "remote_failed"
     });
 
-    expect(status.label).toBe("降级演示");
-    expect(status.title).toBe("远端失败，已自动兜底");
-    expect(status.detail).toContain("面试现场");
+    expect(status.label).toBe("快速模式");
+    expect(status.title).toBe("远端暂不可用，已自动兜底");
+    expect(status.detail).toContain("发布包流程");
   });
 });

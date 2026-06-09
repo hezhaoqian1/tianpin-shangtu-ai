@@ -44,17 +44,17 @@ export function getEditStatus({
     return {
       label: "降级改图",
       title: "远端失败，已使用稳定编辑指令",
-      detail: "远端编辑不可用时自动 fallback，确保画布仍能继续修改和演示。",
+      detail: "远端编辑不可用时自动使用稳定编辑指令，确保画布仍能继续修改。",
       securityNote
     };
   }
 
   return {
-    label: "本地改图",
-    title: endpointConfigured ? "服务端 mock 编辑" : "稳定 mock 编辑",
+    label: "快速改图",
+    title: endpointConfigured ? "服务端快速编辑" : "本机快速编辑",
     detail: endpointConfigured
-      ? "当前编辑路由使用 mock provider，适合无密钥场景稳定演示。"
-      : "当前不依赖网络，直接使用本地编辑命令更新画布和文案。",
+      ? "当前编辑路由使用快速 provider，适合无密钥场景保持流程稳定。"
+      : "当前不依赖网络，直接使用本机编辑命令更新画布和文案。",
     securityNote
   };
 }

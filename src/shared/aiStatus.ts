@@ -31,19 +31,19 @@ export function getAnalysisStatus({
 
   if (endpointConfigured && fallbackReason) {
     return {
-      label: "降级演示",
-      title: "远端失败，已自动兜底",
-      detail: "面试现场即使网络或密钥不可用，也会回到稳定 mock 诊断，保证完整流程可演示。",
+      label: "快速模式",
+      title: "远端暂不可用，已自动兜底",
+      detail: "网络或服务端密钥不可用时，会回到稳定诊断模式，保证用户仍能完成发布包流程。",
       securityNote
     };
   }
 
   return {
-    label: "本地演示",
-    title: endpointConfigured ? "服务端 mock 流程" : "稳定 mock 流程",
+    label: "快速模式",
+    title: endpointConfigured ? "服务端快速诊断" : "本机快速诊断",
     detail: endpointConfigured
-      ? "当前服务端使用 mock provider，适合无密钥场景下稳定演示。"
-      : "当前不依赖网络和模型密钥，直接使用本地 mock 诊断。",
+      ? "当前服务端使用快速诊断 provider，适合无密钥场景下保持流程稳定。"
+      : "当前不依赖网络和模型密钥，直接使用本机诊断策略。",
     securityNote
   };
 }

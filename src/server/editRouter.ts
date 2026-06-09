@@ -60,7 +60,7 @@ async function editWithOpenAI({
   config,
   fetcher
 }: Required<Pick<EditCommandParams, "pack" | "userMessage" | "config">> & { fetcher: Fetcher }) {
-  const response = await fetcher("https://api.openai.com/v1/responses", {
+  const response = await fetcher(`${config.openaiBaseUrl}/responses`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${config.openaiApiKey}`,
@@ -363,4 +363,3 @@ function toBbox(value: unknown): [number, number, number, number] {
 
   return values as [number, number, number, number];
 }
-

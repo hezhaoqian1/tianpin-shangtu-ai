@@ -9,7 +9,7 @@ mock
   No network calls. Uses deterministic local diagnosis for stable demos.
 
 openai
-  Calls https://api.openai.com/v1/responses
+  Calls ${OPENAI_BASE_URL}/responses
   Uses server-side OPENAI_API_KEY
   Expects structured JSON matching ProductAnalysis.
 
@@ -25,10 +25,18 @@ Copy `.env.example` into the server runtime environment:
 
 ```text
 MODEL_PROVIDER=mock
+OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5-mini
 XAI_API_KEY=
 XAI_MODEL=grok-4.1-fast
+```
+
+For OpenAI-compatible gateways, set `OPENAI_BASE_URL` to the provider's `/v1`
+base URL, for example:
+
+```text
+OPENAI_BASE_URL=https://api.apexpoc.com/v1
 ```
 
 For interview demos, keep `MODEL_PROVIDER=mock` unless the network and keys are confirmed. The app still demonstrates the full product flow because the editable canvas state is the source of truth.
@@ -40,6 +48,9 @@ Local development API:
 ```bash
 npm run api
 ```
+
+Railway should use `npm run api` as the service start command. The API server
+listens on Railway's injected `PORT` first, then falls back to local `API_PORT`.
 
 Then point the mobile app at it:
 
