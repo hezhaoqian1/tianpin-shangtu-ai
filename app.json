@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "甜拼商图 AI",
+    "slug": "tianpin-shangtu-ai",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
+
