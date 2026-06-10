@@ -46,15 +46,23 @@ export async function handleSaveProjectRequest(
   }
 
   const { project, userId } = parsed.body;
-  const saved = await repository.saveProject({
-    id: project.item.id,
-    userId,
-    platform: project.pack.platform,
-    title: project.item.title,
-    analysis: project.analysis,
-    pack: project.pack,
-    uploads: project.uploads
-  });
+  let saved: { id: string };
+  try {
+    saved = await repository.saveProject({
+      id: project.item.id,
+      userId,
+      platform: project.pack.platform,
+      title: project.item.title,
+      analysis: project.analysis,
+      pack: project.pack,
+      uploads: project.uploads
+    });
+  } catch {
+    return {
+      status: 400,
+      body: { error: "project_storage_unavailable" }
+    };
+  }
 
   return {
     status: 200,
@@ -82,7 +90,15 @@ export async function handleListProjectsRequest(
     };
   }
 
-  const records = await repository.listProjects(userId.trim());
+  let records: SavedProjectRecord[];
+  try {
+    records = await repository.listProjects(userId.trim());
+  } catch {
+    return {
+      status: 400,
+      body: { error: "project_storage_unavailable" }
+    };
+  }
 
   return {
     status: 200,

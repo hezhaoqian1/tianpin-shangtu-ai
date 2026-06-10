@@ -43,7 +43,9 @@ export function createProjectRepository(config: ServerIntegrationConfig): Projec
 
   const pool = new Pool({
     connectionString: config.databaseUrl,
-    max: 4
+    max: 4,
+    connectionTimeoutMillis: 2500,
+    query_timeout: 5000
   });
 
   return createPgProjectRepository(pool);

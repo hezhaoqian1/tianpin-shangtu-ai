@@ -68,4 +68,37 @@ describe("project route adapter", () => {
     }
     expect(response.body.error).toBe("invalid_project");
   });
+
+  it("returns a storage error instead of hanging when project storage is unavailable", async () => {
+    const repository = {
+      ...createMemoryProjectRepository(),
+      async saveProject() {
+        throw new Error("database unavailable");
+      },
+      async listProjects() {
+        throw new Error("database unavailable");
+      }
+    };
+
+    const saveResponse = await handleSaveProjectRequest(
+      {
+        userId: session.id,
+        project: saved.project
+      },
+      repository
+    );
+    const listResponse = await handleListProjectsRequest(session.id, repository);
+
+    expect(saveResponse.status).toBe(400);
+    if (saveResponse.status !== 400) {
+      throw new Error("expected save storage failure");
+    }
+    expect(saveResponse.body.error).toBe("project_storage_unavailable");
+
+    expect(listResponse.status).toBe(400);
+    if (listResponse.status !== 400) {
+      throw new Error("expected list storage failure");
+    }
+    expect(listResponse.body.error).toBe("project_storage_unavailable");
+  });
 });
