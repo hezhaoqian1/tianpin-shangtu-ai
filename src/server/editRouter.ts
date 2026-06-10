@@ -172,66 +172,46 @@ function editCommandJsonSchema() {
     schema: {
       type: "object",
       additionalProperties: false,
-      required: ["intent", "operations", "explanation"],
+      required: ["intent", "operations", "copy", "explanation"],
       properties: {
         intent: { type: "string" },
         operations: {
           type: "array",
           items: {
-            anyOf: [
-              {
-                type: "object",
+            type: "object",
+            additionalProperties: false,
+            required: ["type", "layerId", "text", "assetId", "background", "imageId", "label", "bbox"],
+            properties: {
+              type: { enum: ["updateText", "updateBackground", "addCallout"] },
+              layerId: { type: ["string", "null"] },
+              text: { type: ["string", "null"] },
+              assetId: { type: ["string", "null"] },
+              background: {
+                type: ["object", "null"],
                 additionalProperties: false,
-                required: ["type", "layerId", "text"],
+                required: ["type", "value"],
                 properties: {
-                  type: { const: "updateText" },
-                  layerId: { type: "string" },
-                  text: { type: "string" }
+                  type: { enum: ["color"] },
+                  value: { type: "string" }
                 }
               },
-              {
-                type: "object",
-                additionalProperties: false,
-                required: ["type", "assetId", "background"],
-                properties: {
-                  type: { const: "updateBackground" },
-                  assetId: { type: "string" },
-                  background: {
-                    type: "object",
-                    additionalProperties: false,
-                    required: ["type", "value"],
-                    properties: {
-                      type: { const: "color" },
-                      value: { type: "string" }
-                    }
-                  }
-                }
-              },
-              {
-                type: "object",
-                additionalProperties: false,
-                required: ["type", "assetId", "imageId", "label", "bbox"],
-                properties: {
-                  type: { const: "addCallout" },
-                  assetId: { type: "string" },
-                  imageId: { type: "string" },
-                  label: { type: "string" },
-                  bbox: {
-                    type: "array",
-                    minItems: 4,
-                    maxItems: 4,
-                    items: { type: "number" }
-                  }
-                }
+              imageId: { type: ["string", "null"] },
+              label: { type: ["string", "null"] },
+              bbox: {
+                type: ["array", "null"],
+                minItems: 4,
+                maxItems: 4,
+                items: { type: "number" }
               }
-            ]
+            }
           }
         },
         copy: {
           type: "object",
           additionalProperties: false,
+          required: ["primaryTitle"],
           properties: {
-            primaryTitle: { type: "string" }
+            primaryTitle: { type: ["string", "null"] }
           }
         },
         explanation: { type: "string" }

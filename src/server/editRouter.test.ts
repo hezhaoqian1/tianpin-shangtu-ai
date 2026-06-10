@@ -53,9 +53,40 @@ describe("edit command router", () => {
     const [url, request] = fetcher.mock.calls[0]!;
     expect(url).toBe("https://api.openai.com/v1/responses");
     expect(request.headers.Authorization).toBe("Bearer sk-test");
-    expect(JSON.parse(request.body).model).toBe("gpt-5-mini");
+    const body = JSON.parse(request.body);
+    expect(body.model).toBe("gpt-5-mini");
+    expect(body.text.format.schema.required).toEqual(["intent", "operations", "copy", "explanation"]);
+    expect(body.text.format.schema.properties.operations.items.required).toEqual([
+      "type",
+      "layerId",
+      "text",
+      "assetId",
+      "background",
+      "imageId",
+      "label",
+      "bbox"
+    ]);
     expect(result.provider).toBe("openai");
     expect(result.command.copy?.primaryTitle).toBe("AI 改短标题");
+  });
+
+  it("parses strict OpenAI edit commands with nullable unused fields", async () => {
+    const fetcher = vi.fn<Fetcher>(async () => jsonResponse(openAiNullableEditPayload()));
+
+    const result = await createEditCommandWithModel({
+      pack,
+      userMessage: "只改画布背景",
+      config: createModelRouterConfig({ provider: "openai", openaiApiKey: "sk-test", openaiModel: "gpt-5-mini" }),
+      fetcher
+    });
+
+    expect(result.provider).toBe("openai");
+    expect(result.command.copy).toBeUndefined();
+    expect(result.command.operations[0]).toEqual({
+      type: "updateBackground",
+      assetId: "cover_01",
+      background: { type: "color", value: "#F4F1EA" }
+    });
   });
 
   it("supports an OpenAI-compatible base URL for edit commands", async () => {
@@ -112,9 +143,50 @@ function openAiEditPayload() {
           {
             text: JSON.stringify({
               intent: "shorten_title",
-              operations: [{ type: "updateText", layerId: "title", text: "AI 改短标题" }],
+              operations: [
+                {
+                  type: "updateText",
+                  layerId: "title",
+                  text: "AI 改短标题",
+                  assetId: null,
+                  background: null,
+                  imageId: null,
+                  label: null,
+                  bbox: null
+                }
+              ],
               copy: { primaryTitle: "AI 改短标题" },
               explanation: "已改短标题"
+            })
+          }
+        ]
+      }
+    ]
+  };
+}
+
+function openAiNullableEditPayload() {
+  return {
+    output: [
+      {
+        content: [
+          {
+            text: JSON.stringify({
+              intent: "soften_background",
+              operations: [
+                {
+                  type: "updateBackground",
+                  layerId: null,
+                  text: null,
+                  assetId: "cover_01",
+                  background: { type: "color", value: "#F4F1EA" },
+                  imageId: null,
+                  label: null,
+                  bbox: null
+                }
+              ],
+              copy: { primaryTitle: null },
+              explanation: "已改成更适合闲鱼的浅暖背景"
             })
           }
         ]
@@ -130,7 +202,18 @@ function xaiEditPayload() {
         message: {
           content: JSON.stringify({
             intent: "shorten_title",
-            operations: [{ type: "updateText", layerId: "title", text: "Grok 改短标题" }],
+            operations: [
+              {
+                type: "updateText",
+                layerId: "title",
+                text: "Grok 改短标题",
+                assetId: null,
+                background: null,
+                imageId: null,
+                label: null,
+                bbox: null
+              }
+            ],
             copy: { primaryTitle: "Grok 改短标题" },
             explanation: "已改短标题"
           })
