@@ -19,7 +19,10 @@ describe("project client", () => {
   it("posts a logged-in seller project to the cloud workspace endpoint", async () => {
     const fetcher = vi.fn(async (_url: string, init: { body?: string }) => ({
       ok: true,
-      json: async () => JSON.parse(init.body ?? "{}")
+      json: async () => ({
+        ...JSON.parse(init.body ?? "{}"),
+        storageProvider: "database"
+      })
     }));
 
     const result = await saveProjectForApp({

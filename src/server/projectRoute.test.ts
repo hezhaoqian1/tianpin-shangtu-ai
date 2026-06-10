@@ -69,7 +69,7 @@ describe("project route adapter", () => {
     expect(response.body.error).toBe("invalid_project");
   });
 
-  it("returns a storage error instead of hanging when project storage is unavailable", async () => {
+  it("falls back to temporary memory storage when project storage is unavailable", async () => {
     const repository = {
       ...createMemoryProjectRepository(),
       async saveProject() {
@@ -89,16 +89,17 @@ describe("project route adapter", () => {
     );
     const listResponse = await handleListProjectsRequest(session.id, repository);
 
-    expect(saveResponse.status).toBe(400);
-    if (saveResponse.status !== 400) {
-      throw new Error("expected save storage failure");
+    expect(saveResponse.status).toBe(200);
+    if (saveResponse.status !== 200) {
+      throw new Error("expected save fallback");
     }
-    expect(saveResponse.body.error).toBe("project_storage_unavailable");
+    expect(saveResponse.body.storageProvider).toBe("memory_fallback");
 
-    expect(listResponse.status).toBe(400);
-    if (listResponse.status !== 400) {
-      throw new Error("expected list storage failure");
+    expect(listResponse.status).toBe(200);
+    if (listResponse.status !== 200) {
+      throw new Error("expected list fallback");
     }
-    expect(listResponse.body.error).toBe("project_storage_unavailable");
+    expect(listResponse.body.storageProvider).toBe("memory_fallback");
+    expect(listResponse.body.projects[0].item.id).toBe(saved.project.item.id);
   });
 });

@@ -17,6 +17,7 @@ export type SaveProjectForAppResult =
   | {
       status: "saved";
       project: SavedProject;
+      storageProvider: "database";
     }
   | {
       status: "local_only";
@@ -87,10 +88,19 @@ export async function saveProjectForApp({
 
     const body = asRecord(await response.json());
     const remoteProject = asSavedProject(body.project);
+    const storageProvider = body.storageProvider === "database" ? "database" : "memory_fallback";
+
+    if (storageProvider === "memory_fallback") {
+      return {
+        status: "local_only",
+        project: remoteProject ?? project
+      };
+    }
 
     return {
       status: "saved",
-      project: remoteProject ?? project
+      project: remoteProject ?? project,
+      storageProvider
     };
   } catch {
     return {

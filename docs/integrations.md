@@ -39,7 +39,7 @@ Request:
 }
 ```
 
-`GET /api/projects?userId=...` returns the seller's latest 50 projects as restorable app projects. If `DATABASE_URL` is missing, the API uses an in-memory fallback so the endpoint can still be smoke-tested on Railway, but those projects will not survive a service restart.
+`GET /api/projects?userId=...` returns the seller's latest 50 projects as restorable app projects. If `DATABASE_URL` is missing or temporarily unavailable, the API uses an in-memory fallback and marks the response as `storageProvider: "memory_fallback"` so the endpoint can still be smoke-tested on Railway. Fallback projects will not survive a service restart.
 
 Variables:
 

@@ -1,6 +1,11 @@
 import { type Platform, type ProductAnalysis, type PublishPack } from "../shared/productPipeline";
 import { type SavedProject } from "../shared/workspace";
-import { createProjectRepository, type ProjectRepository, type SavedProjectRecord } from "./projectRepository";
+import {
+  createMemoryProjectRepository,
+  createProjectRepository,
+  type ProjectRepository,
+  type SavedProjectRecord
+} from "./projectRepository";
 import { createServerIntegrationConfig } from "./env";
 
 export type ProjectRouteResponse =
@@ -8,6 +13,7 @@ export type ProjectRouteResponse =
       status: 200;
       body: {
         project: SavedProject;
+        storageProvider: "database" | "memory_fallback";
       };
     }
   | {
@@ -22,6 +28,7 @@ export type ProjectListRouteResponse =
       status: 200;
       body: {
         projects: SavedProject[];
+        storageProvider: "database" | "memory_fallback";
       };
     }
   | {
@@ -32,6 +39,7 @@ export type ProjectListRouteResponse =
     };
 
 let sharedRepository: ProjectRepository | undefined;
+const fallbackRepository = createMemoryProjectRepository();
 
 export async function handleSaveProjectRequest(
   body: unknown,
@@ -47,6 +55,7 @@ export async function handleSaveProjectRequest(
 
   const { project, userId } = parsed.body;
   let saved: { id: string };
+  let storageProvider: "database" | "memory_fallback" = "database";
   try {
     saved = await repository.saveProject({
       id: project.item.id,
@@ -58,10 +67,16 @@ export async function handleSaveProjectRequest(
       uploads: project.uploads
     });
   } catch {
-    return {
-      status: 400,
-      body: { error: "project_storage_unavailable" }
-    };
+    saved = await fallbackRepository.saveProject({
+      id: project.item.id,
+      userId,
+      platform: project.pack.platform,
+      title: project.item.title,
+      analysis: project.analysis,
+      pack: project.pack,
+      uploads: project.uploads
+    });
+    storageProvider = "memory_fallback";
   }
 
   return {
@@ -74,7 +89,8 @@ export async function handleSaveProjectRequest(
           id: saved.id,
           updatedAtLabel: "刚刚"
         }
-      }
+      },
+      storageProvider
     }
   };
 }
@@ -91,19 +107,19 @@ export async function handleListProjectsRequest(
   }
 
   let records: SavedProjectRecord[];
+  let storageProvider: "database" | "memory_fallback" = "database";
   try {
     records = await repository.listProjects(userId.trim());
   } catch {
-    return {
-      status: 400,
-      body: { error: "project_storage_unavailable" }
-    };
+    records = await fallbackRepository.listProjects(userId.trim());
+    storageProvider = "memory_fallback";
   }
 
   return {
     status: 200,
     body: {
-      projects: records.map(projectRecordToSavedProject)
+      projects: records.map(projectRecordToSavedProject),
+      storageProvider
     }
   };
 }
