@@ -41,6 +41,7 @@ Code:
 - `src/server/storage.ts`
 - `src/server/uploadRoute.ts`
 - `src/shared/uploadClient.ts`
+- `src/shared/remoteUploadClient.ts`
 
 API:
 
@@ -56,6 +57,16 @@ Request:
   "contentType": "image/jpeg",
   "ownerId": "seller-id"
 }
+```
+
+App flow:
+
+```text
+ImagePicker asset
+  -> createUploadIntentForApp
+  -> PUT file/blob to uploadUrl
+  -> write publicUrl into UploadedAsset.remoteUrl
+  -> analyzeUploadsForApp sends remoteUrl to /api/analyze
 ```
 
 Variables:

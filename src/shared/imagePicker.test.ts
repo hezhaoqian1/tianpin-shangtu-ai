@@ -22,6 +22,7 @@ describe("image picker mapping", () => {
       {
         id: "picked_01",
         uri: "file:///front.jpg",
+        mimeType: "image/jpeg",
         label: "front.jpg",
         width: 1200,
         height: 900
@@ -29,6 +30,7 @@ describe("image picker mapping", () => {
       {
         id: "picked_02",
         uri: "file:///detail.jpg",
+        mimeType: "image/jpeg",
         label: "相册图 2",
         width: 800,
         height: 800
@@ -43,4 +45,3 @@ describe("image picker mapping", () => {
     expect(upload.height).toBe(1080);
   });
 });
-

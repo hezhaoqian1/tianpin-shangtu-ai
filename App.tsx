@@ -28,6 +28,7 @@ import {
   type PublishPack,
   type UploadedAsset
 } from "./src/shared/productPipeline";
+import { uploadAssetsForAnalysis } from "./src/shared/remoteUploadClient";
 import { createDemoUserSession, createGuestSession, type UserSession } from "./src/shared/session";
 import { type SellerTemplate } from "./src/shared/templateStrategy";
 import { createSavedProjectFromPack, type SavedProject } from "./src/shared/workspace";
@@ -38,6 +39,7 @@ type FlowStep = "idle" | "upload" | "diagnosis" | "packs" | "editor" | "export";
 
 const analyzeEndpoint = process.env.EXPO_PUBLIC_ANALYZE_ENDPOINT ?? "";
 const editEndpoint = process.env.EXPO_PUBLIC_EDIT_ENDPOINT ?? "";
+const uploadEndpoint = process.env.EXPO_PUBLIC_UPLOAD_ENDPOINT ?? "";
 
 export default function App() {
   const [launchComplete, setLaunchComplete] = useState(false);
@@ -134,6 +136,7 @@ export default function App() {
   async function pickGalleryImages() {
     try {
       setUploadError(null);
+      setIsAnalyzing(true);
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ["images"],
         allowsMultipleSelection: true,
@@ -142,10 +145,24 @@ export default function App() {
       });
 
       if (result.canceled) {
+        setIsAnalyzing(false);
         return;
       }
 
-      await runAnalysis(mapPickedImagesToUploads(result.assets).slice(0, 8));
+      const pickedUploads = mapPickedImagesToUploads(result.assets).slice(0, 8);
+      const uploadResults = await uploadAssetsForAnalysis({
+        assets: pickedUploads,
+        endpoint: uploadEndpoint,
+        ownerId: session.id
+      });
+      const remoteUploads = uploadResults.map((item) => item.asset);
+      const failedUploads = uploadResults.filter((item) => !item.uploaded);
+
+      if (failedUploads.length > 0 && uploadEndpoint) {
+        setUploadError("部分图片没有上传到云端，AI 会先用本地信息兜底诊断。");
+      }
+
+      await runAnalysis(remoteUploads);
     } catch {
       setUploadError("相册选择暂时不可用，可以先用样例图跑完整链路。");
       setIsAnalyzing(false);
