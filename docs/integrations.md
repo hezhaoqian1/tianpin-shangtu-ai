@@ -13,6 +13,33 @@ Code:
 - `prisma/schema.prisma`
 - `prisma/migrations/0001_initial/migration.sql`
 - `src/server/projectRepository.ts`
+- `src/server/projectRoute.ts`
+- `src/shared/projectClient.ts`
+
+API:
+
+```text
+POST /api/projects
+GET /api/projects?userId=seller-id
+```
+
+`POST /api/projects` saves the current export package for a logged-in seller. The app keeps a local copy first, then syncs this endpoint when `EXPO_PUBLIC_PROJECTS_ENDPOINT` is configured.
+
+Request:
+
+```json
+{
+  "userId": "seller-id",
+  "project": {
+    "item": {},
+    "pack": {},
+    "analysis": {},
+    "uploads": []
+  }
+}
+```
+
+`GET /api/projects?userId=...` returns the seller's latest 50 projects as restorable app projects. If `DATABASE_URL` is missing, the API uses an in-memory fallback so the endpoint can still be smoke-tested on Railway, but those projects will not survive a service restart.
 
 Variables:
 

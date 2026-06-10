@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 
+import { type Platform, type ProductAnalysis, type PublishPack, type UploadedAsset } from "../shared/productPipeline";
 import { type ServerIntegrationConfig } from "./env";
 
 export type GenerationJobInput = {
@@ -14,17 +15,24 @@ export type GenerationJobInput = {
 };
 
 export type SavedProjectInput = {
+  id?: string;
   userId?: string;
-  platform: string;
+  platform: Platform;
   title: string;
-  analysis: unknown;
-  pack: unknown;
-  uploads: unknown;
+  analysis: ProductAnalysis;
+  pack: PublishPack;
+  uploads: UploadedAsset[];
+};
+
+export type SavedProjectRecord = SavedProjectInput & {
+  id: string;
+  updatedAt: string;
 };
 
 export type ProjectRepository = {
   recordGenerationJob(input: GenerationJobInput): Promise<{ id: string }>;
   saveProject(input: SavedProjectInput): Promise<{ id: string }>;
+  listProjects(userId: string): Promise<SavedProjectRecord[]>;
   close(): Promise<void>;
 };
 
@@ -68,13 +76,21 @@ export function createPgProjectRepository(pool: Pool): ProjectRepository {
     },
 
     async saveProject(input) {
-      const id = randomUUID();
+      const id = input.id ?? randomUUID();
       await withClient(pool, async (client) => {
         await client.query(
           [
             'INSERT INTO "Project"',
             '("id","userId","platform","title","analysis","pack","uploads")',
-            "VALUES ($1,$2,$3,$4,$5,$6,$7)"
+            "VALUES ($1,$2,$3,$4,$5,$6,$7)",
+            'ON CONFLICT ("id") DO UPDATE SET',
+            '"userId" = EXCLUDED."userId",',
+            '"platform" = EXCLUDED."platform",',
+            '"title" = EXCLUDED."title",',
+            '"analysis" = EXCLUDED."analysis",',
+            '"pack" = EXCLUDED."pack",',
+            '"uploads" = EXCLUDED."uploads",',
+            '"updatedAt" = now()'
           ].join(" "),
           [
             id,
@@ -90,15 +106,41 @@ export function createPgProjectRepository(pool: Pool): ProjectRepository {
       return { id };
     },
 
+    async listProjects(userId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.query(
+          [
+            'SELECT "id","userId","platform","title","analysis","pack","uploads","updatedAt"',
+            'FROM "Project"',
+            'WHERE "userId" = $1',
+            'ORDER BY "updatedAt" DESC',
+            "LIMIT 50"
+          ].join(" "),
+          [userId]
+        );
+
+        return result.rows.map((row) => ({
+          id: row.id,
+          userId: row.userId ?? undefined,
+          platform: row.platform,
+          title: row.title,
+          analysis: row.analysis,
+          pack: row.pack,
+          uploads: row.uploads,
+          updatedAt: new Date(row.updatedAt).toISOString()
+        }));
+      });
+    },
+
     async close() {
       await pool.end();
     }
   };
 }
 
-function createMemoryProjectRepository(): ProjectRepository {
+export function createMemoryProjectRepository(): ProjectRepository {
   const jobs = new Map<string, GenerationJobInput>();
-  const projects = new Map<string, SavedProjectInput>();
+  const projects = new Map<string, SavedProjectRecord>();
 
   return {
     async recordGenerationJob(input) {
@@ -107,9 +149,19 @@ function createMemoryProjectRepository(): ProjectRepository {
       return { id };
     },
     async saveProject(input) {
-      const id = randomUUID();
-      projects.set(id, input);
+      const id = input.id ?? randomUUID();
+      projects.set(id, {
+        ...input,
+        id,
+        updatedAt: new Date().toISOString()
+      });
       return { id };
+    },
+    async listProjects(userId) {
+      return [...projects.values()]
+        .filter((project) => project.userId === userId)
+        .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+        .slice(0, 50);
     },
     async close() {
       jobs.clear();

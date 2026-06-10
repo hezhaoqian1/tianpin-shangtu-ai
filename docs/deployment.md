@@ -89,6 +89,7 @@ EXPO_PUBLIC_EDIT_ENDPOINT=https://your-service.up.railway.app/api/edit
 EXPO_PUBLIC_UPLOAD_ENDPOINT=https://your-service.up.railway.app/api/uploads/presign
 EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT=https://your-service.up.railway.app/api/images/generate
 EXPO_PUBLIC_REMOVE_BACKGROUND_ENDPOINT=https://your-service.up.railway.app/api/images/remove-background
+EXPO_PUBLIC_PROJECTS_ENDPOINT=https://your-service.up.railway.app/api/projects
 ```
 
 For local API development:
@@ -99,6 +100,7 @@ EXPO_PUBLIC_EDIT_ENDPOINT=http://localhost:3001/api/edit
 EXPO_PUBLIC_UPLOAD_ENDPOINT=http://localhost:3001/api/uploads/presign
 EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT=http://localhost:3001/api/images/generate
 EXPO_PUBLIC_REMOVE_BACKGROUND_ENDPOINT=http://localhost:3001/api/images/remove-background
+EXPO_PUBLIC_PROJECTS_ENDPOINT=http://localhost:3001/api/projects
 ```
 
 For real-device testing, replace `localhost` with the computer's LAN IP.

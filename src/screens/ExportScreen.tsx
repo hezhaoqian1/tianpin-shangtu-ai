@@ -16,7 +16,7 @@ type ExportScreenProps = {
   session: UserSession;
   saveMessage: string | null;
   onLogin: () => void;
-  onSaveProject: () => void;
+  onSaveProject: () => void | Promise<void>;
   onBack: () => void;
   onRestart: () => void;
 };
@@ -60,7 +60,7 @@ export function ExportScreen({
 
     setLocalExportMessage(result.message);
     if (action === "high_res") {
-      onSaveProject();
+      await onSaveProject();
     }
   }
 
@@ -91,7 +91,7 @@ export function ExportScreen({
           {session.kind === "guest" ? (
             <Button label={savePrompt.primaryAction} onPress={onLogin} style={styles.accountButton} />
           ) : (
-            <Button label="保存到历史" onPress={onSaveProject} style={styles.accountButton} />
+            <Button label="保存到历史" onPress={() => void onSaveProject()} style={styles.accountButton} />
           )}
           <Button
             label={bundle.highResUnlocked ? "高清导出" : "登录高清"}

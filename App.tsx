@@ -37,6 +37,7 @@ import {
   type PublishPack,
   type UploadedAsset
 } from "./src/shared/productPipeline";
+import { listProjectsForApp, saveProjectForApp } from "./src/shared/projectClient";
 import { uploadAssetsForAnalysis } from "./src/shared/remoteUploadClient";
 import { createDemoUserSession, createGuestSession, type UserSession } from "./src/shared/session";
 import { type SellerTemplate } from "./src/shared/templateStrategy";
@@ -59,6 +60,7 @@ const analyzeEndpoint = process.env.EXPO_PUBLIC_ANALYZE_ENDPOINT ?? "";
 const editEndpoint = process.env.EXPO_PUBLIC_EDIT_ENDPOINT ?? "";
 const uploadEndpoint = process.env.EXPO_PUBLIC_UPLOAD_ENDPOINT ?? "";
 const imageGenerateEndpoint = process.env.EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT ?? "";
+const projectEndpoint = process.env.EXPO_PUBLIC_PROJECTS_ENDPOINT ?? "";
 
 export default function App() {
   const [launchComplete, setLaunchComplete] = useState(false);
@@ -94,6 +96,33 @@ export default function App() {
     () => generatedCoverJobs.some((job) => job.status === "queued" || job.status === "running"),
     [generatedCoverJobs]
   );
+
+  useEffect(() => {
+    if (!isAuthenticated || session.kind === "guest" || !projectEndpoint) {
+      return undefined;
+    }
+
+    let canceled = false;
+
+    async function loadCloudProjects() {
+      const result = await listProjectsForApp({
+        endpoint: projectEndpoint,
+        session
+      });
+
+      if (canceled || result.status !== "loaded") {
+        return;
+      }
+
+      setSavedProjects(result.projects);
+    }
+
+    void loadCloudProjects();
+
+    return () => {
+      canceled = true;
+    };
+  }, [isAuthenticated, session]);
 
   function completeAuth() {
     setSession(createDemoUserSession());
@@ -375,7 +404,7 @@ export default function App() {
     setSelectedPack((currentPack) => (currentPack ? applyGeneratedCoverImage(currentPack, job.asset!) : currentPack));
   }
 
-  function saveCurrentProject() {
+  async function saveCurrentProject() {
     if (!selectedPack || !analysis) {
       return;
     }
@@ -392,11 +421,36 @@ export default function App() {
       return;
     }
 
-    setSavedProjects((projects) => [
-      result.project,
-      ...projects.filter((project) => project.item.id !== result.project.item.id)
-    ]);
-    setExportSaveMessage("已保存到作品库，后续可以继续编辑或复用风格。");
+    setSavedProjects((projects) => [result.project, ...projects.filter((project) => project.item.id !== result.project.item.id)]);
+    const cloudResult = await saveProjectForApp({
+      endpoint: projectEndpoint,
+      session,
+      project: result.project
+    });
+
+    if (cloudResult.status === "saved" || cloudResult.status === "local_only" || cloudResult.status === "remote_failed") {
+      setSavedProjects((projects) => [
+        cloudResult.project,
+        ...projects.filter((project) => project.item.id !== cloudResult.project.item.id)
+      ]);
+    }
+
+    if (cloudResult.status === "saved") {
+      setExportSaveMessage("已同步到云端作品库，后续可以继续编辑或复用风格。");
+      return;
+    }
+
+    if (cloudResult.status === "local_only") {
+      setExportSaveMessage("已保存到本机作品库；配置云端作品库接口后可跨设备同步。");
+      return;
+    }
+
+    if (cloudResult.status === "remote_failed") {
+      setExportSaveMessage("已先保存到本机作品库，云端同步暂时失败，可稍后重试。");
+      return;
+    }
+
+    setExportSaveMessage(cloudResult.prompt.body);
   }
 
   function openSavedProject(projectId: string) {

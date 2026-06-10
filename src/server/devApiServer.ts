@@ -8,6 +8,7 @@ import {
   handleGetImageJobRequest,
   handleRemoveBackgroundRequest
 } from "./imageRoute";
+import { handleListProjectsRequest, handleSaveProjectRequest } from "./projectRoute";
 import { handleCreateUploadIntentRequest } from "./uploadRoute";
 
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001);
@@ -46,6 +47,20 @@ const server = createServer(async (request, response) => {
   if (request.method === "POST" && request.url === "/api/uploads/presign") {
     const body = await readJsonBody(request);
     const result = await handleCreateUploadIntentRequest(body);
+    writeJson(response, result.status, result.body);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/api/projects") {
+    const body = await readJsonBody(request);
+    const result = await handleSaveProjectRequest(body);
+    writeJson(response, result.status, result.body);
+    return;
+  }
+
+  if (request.method === "GET" && request.url?.startsWith("/api/projects")) {
+    const url = new URL(request.url, `http://${request.headers.host ?? "localhost"}`);
+    const result = await handleListProjectsRequest(url.searchParams.get("userId") ?? undefined);
     writeJson(response, result.status, result.body);
     return;
   }
