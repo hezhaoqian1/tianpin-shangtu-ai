@@ -120,5 +120,5 @@ Return `result.analysis` to the mobile app, then generate publish packs through 
 ## Troubleshooting
 
 - `npm ci` fails on Railway with missing `@emnapi/*`: regenerate `package-lock.json` with `npx npm@10.8.2 install --package-lock-only`, then verify with `npx npm@10.8.2 ci`.
-- Railway uses Node 18: this repo pins Node 20 through `.nvmrc` and `package.json` `engines.node`; if needed, set `NIXPACKS_NODE_VERSION=20`.
+- Railway uses Node 18: this repo pins Node 22 through `.nvmrc` and `package.json` `engines.node`; if needed, set `NIXPACKS_NODE_VERSION=22`.
 - API deploys but health check fails: confirm `tsx` is in `dependencies`, `railway.toml` points to `npm run api`, and `/health` returns `{"ok":true}` locally.

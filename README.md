@@ -24,7 +24,7 @@
 
 ## 本地运行
 
-项目使用 Node 20。建议先切到 Node 20：
+项目使用 Node 22。建议先切到 Node 22：
 
 ```bash
 nvm use
@@ -113,7 +113,7 @@ BACKGROUND_REMOVAL_PROVIDER=mock
 如果 Railway 仍然选择 Node 18，在 Variables 里额外加：
 
 ```env
-NIXPACKS_NODE_VERSION=20
+NIXPACKS_NODE_VERSION=22
 ```
 
 部署成功后，把 Expo 前端 endpoint 指向 Railway 域名：

@@ -41,7 +41,7 @@ API_HOST=0.0.0.0
 Optional fallback if Railway/Nixpacks still selects Node 18:
 
 ```env
-NIXPACKS_NODE_VERSION=20
+NIXPACKS_NODE_VERSION=22
 ```
 
 Optional xAI/Grok provider:
@@ -130,9 +130,9 @@ npx npm@10.8.2 ci
 
 Commit the changed `package-lock.json`.
 
-### Node 18 engine warnings
+### Node engine warnings
 
-Expo 54 / React Native 0.81 expects Node 20. This repo pins Node through:
+Expo 54 / React Native 0.81 expects Node 20.19.4 or newer. This repo pins Node 22 through:
 
 - `.nvmrc`
 - `package.json` `engines.node`
@@ -140,7 +140,7 @@ Expo 54 / React Native 0.81 expects Node 20. This repo pins Node through:
 If Railway still uses Node 18, add:
 
 ```env
-NIXPACKS_NODE_VERSION=20
+NIXPACKS_NODE_VERSION=22
 ```
 
 ### API starts locally but fails on Railway

@@ -4,7 +4,7 @@
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "engines": {
-    "node": "20.x"
+    "node": "22.x"
   },
   "scripts": {
     "start": "expo start",
@@ -21,7 +21,7 @@
     "@aws-sdk/client-s3": "^3.1065.0",
     "@aws-sdk/s3-request-presigner": "^3.1065.0",
     "@expo/metro-runtime": "^6.1.2",
-    "@prisma/client": "^7.8.0",
+    "@prisma/client": "^6.19.3",
     "expo": "^54.0.0",
     "expo-image-picker": "~17.0.11",
     "expo-status-bar": "^3.0.8",
@@ -41,7 +41,7 @@
     "@typescript-eslint/parser": "^8.48.0",
     "eslint": "^9.39.1",
     "eslint-config-expo": "^10.0.0",
-    "prisma": "^7.8.0",
+    "prisma": "^6.19.3",
     "typescript": "^5.9.3",
     "vitest": "^4.0.13"
   }
