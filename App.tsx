@@ -18,8 +18,14 @@ import { WorksScreen } from "./src/screens/WorksScreen";
 import { analyzeUploadsForApp, type AppAnalysisSource } from "./src/shared/analysisClient";
 import { normalizeEditPrompt } from "./src/shared/editConversation";
 import { createEditCommandForApp, type AppEditSource } from "./src/shared/editClient";
+import {
+  generateCoverImageForApp,
+  type AppGeneratedImageFallbackReason,
+  type AppGeneratedImageSource
+} from "./src/shared/generatedImageClient";
 import { mapPickedImagesToUploads } from "./src/shared/imagePicker";
 import {
+  applyGeneratedCoverImage,
   applyEditCommand,
   createPublishPacks,
   createSampleUploads,
@@ -40,6 +46,7 @@ type FlowStep = "idle" | "upload" | "diagnosis" | "packs" | "editor" | "export";
 const analyzeEndpoint = process.env.EXPO_PUBLIC_ANALYZE_ENDPOINT ?? "";
 const editEndpoint = process.env.EXPO_PUBLIC_EDIT_ENDPOINT ?? "";
 const uploadEndpoint = process.env.EXPO_PUBLIC_UPLOAD_ENDPOINT ?? "";
+const imageGenerateEndpoint = process.env.EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT ?? "";
 
 export default function App() {
   const [launchComplete, setLaunchComplete] = useState(false);
@@ -58,6 +65,9 @@ export default function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [editSource, setEditSource] = useState<AppEditSource | undefined>(undefined);
   const [editFallbackReason, setEditFallbackReason] = useState<string | undefined>(undefined);
+  const [isGeneratingCover, setIsGeneratingCover] = useState(false);
+  const [generatedImageSource, setGeneratedImageSource] = useState<AppGeneratedImageSource | undefined>(undefined);
+  const [generatedImageFallbackReason, setGeneratedImageFallbackReason] = useState<AppGeneratedImageFallbackReason | undefined>(undefined);
   const [session, setSession] = useState<UserSession>(() => createGuestSession());
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [exportSaveMessage, setExportSaveMessage] = useState<string | null>(null);
@@ -90,6 +100,9 @@ export default function App() {
     setIsEditing(false);
     setEditSource(undefined);
     setEditFallbackReason(undefined);
+    setIsGeneratingCover(false);
+    setGeneratedImageSource(undefined);
+    setGeneratedImageFallbackReason(undefined);
     setExportSaveMessage(null);
   }
 
@@ -173,6 +186,8 @@ export default function App() {
     setSelectedPack(pack);
     setEditSource(undefined);
     setEditFallbackReason(undefined);
+    setGeneratedImageSource(undefined);
+    setGeneratedImageFallbackReason(undefined);
     setExportSaveMessage(null);
     setFlowStep("editor");
   }
@@ -198,6 +213,37 @@ export default function App() {
     setEditSource(result.source);
     setEditFallbackReason(result.fallbackReason);
     setIsEditing(false);
+  }
+
+  async function generateCoverImage() {
+    if (!selectedPack || isGeneratingCover) {
+      return;
+    }
+
+    setIsGeneratingCover(true);
+    setGeneratedImageSource(undefined);
+    setGeneratedImageFallbackReason(undefined);
+    const result = await generateCoverImageForApp({
+      pack: selectedPack,
+      uploads,
+      endpoint: imageGenerateEndpoint,
+      ownerId: session.id
+    });
+
+    if (result.source === "remote") {
+      setUploads((currentUploads) => [
+        result.asset,
+        ...currentUploads.filter((asset) => asset.id !== result.asset.id)
+      ]);
+      setSelectedPack(applyGeneratedCoverImage(selectedPack, result.asset));
+      setGeneratedImageSource(result.source);
+      setGeneratedImageFallbackReason(undefined);
+    } else {
+      setGeneratedImageSource(result.source);
+      setGeneratedImageFallbackReason(result.fallbackReason);
+    }
+
+    setIsGeneratingCover(false);
   }
 
   function saveCurrentProject() {
@@ -292,7 +338,12 @@ export default function App() {
             editSource={editSource}
             editFallbackReason={editFallbackReason}
             editEndpointConfigured={Boolean(editEndpoint)}
+            isGeneratingCover={isGeneratingCover}
+            generatedImageSource={generatedImageSource}
+            generatedImageFallbackReason={generatedImageFallbackReason}
+            imageGenerateEndpointConfigured={Boolean(imageGenerateEndpoint)}
             onApplyEdit={applyDemoEdit}
+            onGenerateCover={generateCoverImage}
             onExport={() => setFlowStep("export")}
           />
         ) : null}

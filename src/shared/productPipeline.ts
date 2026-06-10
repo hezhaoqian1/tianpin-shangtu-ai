@@ -437,6 +437,36 @@ export function applyEditCommand(pack: PublishPack, command: EditCommand): Publi
   };
 }
 
+export function applyGeneratedCoverImage(pack: PublishPack, generatedAsset: UploadedAsset): PublishPack {
+  const [coverCanvas, ...restCanvases] = pack.canvases;
+  if (!coverCanvas) {
+    return pack;
+  }
+
+  return {
+    ...pack,
+    canvases: [
+      {
+        ...coverCanvas,
+        background: { type: "color", value: "#FFFFFF" },
+        layers: [
+          {
+            id: "generated_cover_image",
+            type: "image",
+            imageId: generatedAsset.id,
+            x: 0,
+            y: 0,
+            width: coverCanvas.width,
+            height: coverCanvas.height,
+            cornerRadius: 0
+          }
+        ]
+      },
+      ...restCanvases
+    ]
+  };
+}
+
 function imageLayer(
   id: string,
   imageId: string,

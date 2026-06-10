@@ -9,6 +9,7 @@ import {
   normalizeEditPrompt
 } from "../shared/editConversation";
 import { type AppEditSource } from "../shared/editClient";
+import { type AppGeneratedImageFallbackReason, type AppGeneratedImageSource } from "../shared/generatedImageClient";
 import { getEditStatus } from "../shared/editStatus";
 import { type PublishPack, type UploadedAsset } from "../shared/productPipeline";
 import { Button } from "../ui/Buttons";
@@ -24,7 +25,12 @@ type EditorScreenProps = {
   editSource?: AppEditSource;
   editFallbackReason?: string;
   editEndpointConfigured: boolean;
+  isGeneratingCover: boolean;
+  generatedImageSource?: AppGeneratedImageSource;
+  generatedImageFallbackReason?: AppGeneratedImageFallbackReason;
+  imageGenerateEndpointConfigured: boolean;
   onApplyEdit: (userMessage: string) => void;
+  onGenerateCover: () => void;
   onExport: () => void;
 };
 
@@ -38,7 +44,12 @@ export function EditorScreen({
   editSource,
   editFallbackReason,
   editEndpointConfigured,
+  isGeneratingCover,
+  generatedImageSource,
+  generatedImageFallbackReason,
+  imageGenerateEndpointConfigured,
   onApplyEdit,
+  onGenerateCover,
   onExport
 }: EditorScreenProps) {
   const [editPrompt, setEditPrompt] = useState(() => getDefaultEditPrompt());
@@ -49,6 +60,12 @@ export function EditorScreen({
     hasHistory: pack.history.length > 0,
     endpointConfigured: editEndpointConfigured,
     fallbackReason: editFallbackReason
+  });
+  const generatedStatus = getGeneratedImageStatus({
+    source: generatedImageSource,
+    fallbackReason: generatedImageFallbackReason,
+    endpointConfigured: imageGenerateEndpointConfigured,
+    isGenerating: isGeneratingCover
   });
 
   function handleChipPress(chip: string) {
@@ -64,9 +81,29 @@ export function EditorScreen({
     onApplyEdit(nextPrompt);
   }
 
+  function handleGenerateCover() {
+    if (isGeneratingCover || !imageGenerateEndpointConfigured) {
+      return;
+    }
+
+    onGenerateCover();
+  }
+
   return (
     <Screen eyebrow="AI 可编辑画布" title={pack.title} subtitle={pack.summary}>
       <CanvasPreview canvas={pack.canvases[0]} uploads={uploads} />
+
+      <View style={styles.generatePanel}>
+        <View style={styles.generateCopy}>
+          <Text style={styles.panelTitle}>AI 生成封面</Text>
+          <Text style={styles.generateText}>{generatedStatus.detail}</Text>
+        </View>
+        <Button
+          label={generatedStatus.actionLabel}
+          onPress={handleGenerateCover}
+          variant={imageGenerateEndpointConfigured && !isGeneratingCover ? "primary" : "secondary"}
+        />
+      </View>
 
       <View style={styles.toolbar}>
         {["模板", "文字", "背景", "标签", "瑕疵", "AI"].map((tool) => (
@@ -161,6 +198,23 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.md
   },
+  generatePanel: {
+    backgroundColor: palette.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    padding: spacing.lg,
+    gap: spacing.md
+  },
+  generateCopy: {
+    gap: spacing.xs
+  },
+  generateText: {
+    color: palette.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "700"
+  },
   panelTitle: {
     color: palette.ink,
     fontSize: 17,
@@ -250,3 +304,55 @@ const styles = StyleSheet.create({
     flex: 1
   }
 });
+
+function getGeneratedImageStatus({
+  source,
+  fallbackReason,
+  endpointConfigured,
+  isGenerating
+}: {
+  source?: AppGeneratedImageSource;
+  fallbackReason?: AppGeneratedImageFallbackReason;
+  endpointConfigured: boolean;
+  isGenerating: boolean;
+}) {
+  if (isGenerating) {
+    return {
+      actionLabel: "生成中",
+      detail: "正在用 GPT Image 2 生成封面，通常需要 1-2 分钟。完成后会自动替换当前封面并保存云端 URL。"
+    };
+  }
+
+  if (!endpointConfigured) {
+    return {
+      actionLabel: "配置接口后可用",
+      detail: "当前没有配置生图接口，暂时不能生成真实封面。"
+    };
+  }
+
+  if (source === "remote") {
+    return {
+      actionLabel: "重新生成",
+      detail: "封面已由 GPT Image 2 生成，并保存为云端图片；保存作品后可继续在作品库打开。"
+    };
+  }
+
+  if (fallbackReason === "missing_image_url") {
+    return {
+      actionLabel: "重试生成",
+      detail: "模型返回了结果，但没有可展示的图片 URL。请重试一次。"
+    };
+  }
+
+  if (fallbackReason === "remote_failed") {
+    return {
+      actionLabel: "重试生成",
+      detail: "生图服务这次没有成功返回，可能是网络或模型耗时问题。"
+    };
+  }
+
+  return {
+    actionLabel: "AI 生成封面",
+    detail: "基于当前商品图、平台和文案生成一张可发布封面；商品成色和瑕疵不应被美化。"
+  };
+}

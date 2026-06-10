@@ -32,7 +32,8 @@ export async function handleGenerateImageRequest(
   const result = await generateSellerImage({
     request: parsed.body,
     config: createModelRouterConfig(configOverrides),
-    imageModel: integrationConfig.imageGeneration.model
+    imageModel: integrationConfig.imageGeneration.model,
+    storageConfig: integrationConfig.storage
   });
 
   return {
@@ -95,7 +96,8 @@ function parseImageGenerationBody(value: unknown):
       mode,
       prompt: record.prompt,
       productImageUrl: typeof record.productImageUrl === "string" ? record.productImageUrl : undefined,
-      size
+      size,
+      ownerId: typeof record.ownerId === "string" ? record.ownerId : undefined
     }
   };
 }

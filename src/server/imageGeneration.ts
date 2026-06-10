@@ -1,4 +1,6 @@
+import { type ServerIntegrationConfig } from "./env";
 import { type ModelRouterConfig } from "./modelRouter";
+import { storeGeneratedImage, type StoredObjectUploader } from "./storage";
 
 export type ImageGenerationMode = "seller_cover" | "clean_background" | "lifestyle_scene";
 
@@ -7,6 +9,7 @@ export type ImageGenerationRequest = {
   prompt: string;
   productImageUrl?: string;
   size?: "1024x1024" | "1024x1536" | "1536x1024";
+  ownerId?: string;
 };
 
 export type ImageGenerationResult = {
@@ -15,6 +18,8 @@ export type ImageGenerationResult = {
   imageUrl?: string;
   base64?: string;
   fallbackReason?: string;
+  storageProvider?: "mock" | "s3";
+  storageKey?: string;
 };
 
 export type ImageGenerationFetcher = (
@@ -33,12 +38,16 @@ export async function generateSellerImage({
   request,
   config,
   imageModel,
-  fetcher = fetch as ImageGenerationFetcher
+  storageConfig,
+  fetcher = fetch as ImageGenerationFetcher,
+  generatedImageUploader
 }: {
   request: ImageGenerationRequest;
   config: ModelRouterConfig;
   imageModel: string;
+  storageConfig?: ServerIntegrationConfig["storage"];
   fetcher?: ImageGenerationFetcher;
+  generatedImageUploader?: StoredObjectUploader;
 }): Promise<ImageGenerationResult> {
   if (!config.openaiApiKey) {
     return mockImageResult(imageModel, "missing_openai_key");
@@ -72,6 +81,26 @@ export async function generateSellerImage({
 
     if (!base64 && !imageUrl) {
       return mockImageResult(imageModel, "missing_image_output");
+    }
+
+    if (base64 && storageConfig) {
+      const stored = await storeGeneratedImage(
+        {
+          base64,
+          ownerId: request.ownerId
+        },
+        storageConfig,
+        generatedImageUploader
+      );
+
+      return {
+        provider: "openai",
+        model: imageModel,
+        base64,
+        imageUrl: stored.publicUrl ?? imageUrl,
+        storageProvider: stored.provider,
+        storageKey: stored.key
+      };
     }
 
     return {

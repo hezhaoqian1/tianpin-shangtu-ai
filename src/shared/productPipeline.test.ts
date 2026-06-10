@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyEditCommand,
+  applyGeneratedCoverImage,
   createMockProductAnalysis,
   createPublishPacks,
   createSampleUploads,
@@ -82,5 +83,35 @@ describe("seller image assistant pipeline", () => {
     expect(edited.canvases[0].layers.find((layer) => layer.id === "title")?.type).toBe("text");
     expect(edited.canvases[1].layers.some((layer) => layer.type === "callout")).toBe(true);
     expect(edited.history).toHaveLength(1);
+  });
+
+  it("replaces the cover canvas with a persisted AI-generated cover image", () => {
+    const uploads = createSampleUploads("headphones");
+    const analysis = createMockProductAnalysis(uploads, "xianyu");
+    const [pack] = createPublishPacks(analysis, uploads);
+
+    const edited = applyGeneratedCoverImage(pack, {
+      id: "generated_cover_pack_authentic",
+      uri: "https://cdn.example.com/generated/cover.png",
+      remoteUrl: "https://cdn.example.com/generated/cover.png",
+      mimeType: "image/png",
+      label: "AI 生成封面",
+      width: 1024,
+      height: 1024
+    });
+
+    expect(edited.canvases[0].layers).toEqual([
+      {
+        id: "generated_cover_image",
+        type: "image",
+        imageId: "generated_cover_pack_authentic",
+        x: 0,
+        y: 0,
+        width: edited.canvases[0].width,
+        height: edited.canvases[0].height,
+        cornerRadius: 0
+      }
+    ]);
+    expect(edited.canvases[1]).toBe(pack.canvases[1]);
   });
 });

@@ -131,6 +131,20 @@ API:
 POST /api/images/generate
 ```
 
+Request:
+
+```json
+{
+  "mode": "seller_cover",
+  "prompt": "真实闲鱼风封面，保留成色和瑕疵",
+  "productImageUrl": "https://pub-...r2.dev/uploads/seller/2026-06-10/photo.jpg",
+  "size": "1024x1024",
+  "ownerId": "seller-demo"
+}
+```
+
+When storage is configured, the route uploads GPT Image output back to the configured S3/R2 bucket under `generated/{ownerId}/{date}/...png` and returns a persistent `imageUrl`. The mobile app uses that URL as an `UploadedAsset`, replaces the current cover canvas with it, and keeps it when saving the project.
+
 Variables:
 
 ```env

@@ -21,6 +21,15 @@ export type UploadIntent = {
   expiresInSeconds: number;
 };
 
+export type StoredGeneratedImage = {
+  provider: "mock" | "s3";
+  key: string;
+  publicUrl?: string;
+  contentType: "image/png";
+};
+
+export type StoredObjectUploader = (client: S3Client, command: PutObjectCommand) => Promise<void>;
+
 export async function createUploadIntent(
   request: UploadIntentRequest,
   config: ServerIntegrationConfig,
@@ -80,11 +89,72 @@ export async function createUploadIntent(
   };
 }
 
+export async function storeGeneratedImage(
+  {
+    base64,
+    ownerId
+  }: {
+    base64: string;
+    ownerId?: string;
+  },
+  config: ServerIntegrationConfig["storage"],
+  uploader: StoredObjectUploader = async (client, command) => {
+    await client.send(command);
+  }
+): Promise<StoredGeneratedImage> {
+  const key = createGeneratedImageKey(ownerId);
+  const contentType = "image/png";
+
+  if (config.provider !== "s3") {
+    return {
+      provider: "mock",
+      key,
+      publicUrl: config.publicBaseUrl ? joinUrl(config.publicBaseUrl, key) : undefined,
+      contentType
+    };
+  }
+
+  const missing = missingStorageFields(config);
+  if (missing.length > 0) {
+    throw new Error(`Missing storage config: ${missing.join(",")}`);
+  }
+
+  const client = new S3Client({
+    region: config.region,
+    endpoint: config.endpoint,
+    forcePathStyle: Boolean(config.endpoint),
+    credentials: {
+      accessKeyId: config.accessKeyId!,
+      secretAccessKey: config.secretAccessKey!
+    }
+  });
+
+  const command = new PutObjectCommand({
+    Bucket: config.bucket!,
+    Key: key,
+    ContentType: contentType,
+    Body: Buffer.from(base64, "base64")
+  });
+
+  await uploader(client, command);
+
+  return {
+    provider: "s3",
+    key,
+    publicUrl: config.publicBaseUrl ? joinUrl(config.publicBaseUrl, key) : undefined,
+    contentType
+  };
+}
+
 function missingStorageConfig(config: ServerIntegrationConfig) {
+  return missingStorageFields(config.storage);
+}
+
+function missingStorageFields(storage: ServerIntegrationConfig["storage"]) {
   const missing: string[] = [];
-  if (!config.storage.bucket) missing.push("STORAGE_BUCKET");
-  if (!config.storage.accessKeyId) missing.push("STORAGE_ACCESS_KEY_ID");
-  if (!config.storage.secretAccessKey) missing.push("STORAGE_SECRET_ACCESS_KEY");
+  if (!storage.bucket) missing.push("STORAGE_BUCKET");
+  if (!storage.accessKeyId) missing.push("STORAGE_ACCESS_KEY_ID");
+  if (!storage.secretAccessKey) missing.push("STORAGE_SECRET_ACCESS_KEY");
   return missing;
 }
 
@@ -101,6 +171,11 @@ function createObjectKey(fileName: string, ownerId?: string) {
   const extension = normalizeExtension(extname(fileName));
   const ownerPrefix = ownerId ? slug(ownerId) : "anonymous";
   return `uploads/${ownerPrefix}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}${extension}`;
+}
+
+function createGeneratedImageKey(ownerId?: string) {
+  const ownerPrefix = ownerId ? slug(ownerId) : "anonymous";
+  return `generated/${ownerPrefix}/${new Date().toISOString().slice(0, 10)}/${randomUUID()}.png`;
 }
 
 function normalizeExtension(extension: string) {
