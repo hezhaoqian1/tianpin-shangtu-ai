@@ -2,7 +2,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import { handleAnalyzeRequest } from "./analyzeRoute";
 import { handleEditRequest } from "./editRoute";
-import { handleGenerateImageRequest, handleRemoveBackgroundRequest } from "./imageRoute";
+import {
+  handleCreateImageJobRequest,
+  handleGenerateImageRequest,
+  handleGetImageJobRequest,
+  handleRemoveBackgroundRequest
+} from "./imageRoute";
 import { handleCreateUploadIntentRequest } from "./uploadRoute";
 
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001);
@@ -48,6 +53,20 @@ const server = createServer(async (request, response) => {
   if (request.method === "POST" && request.url === "/api/images/generate") {
     const body = await readJsonBody(request);
     const result = await handleGenerateImageRequest(body);
+    writeJson(response, result.status, result.body);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/api/images/jobs") {
+    const body = await readJsonBody(request);
+    const result = await handleCreateImageJobRequest(body);
+    writeJson(response, result.status, result.body);
+    return;
+  }
+
+  if (request.method === "GET" && request.url?.startsWith("/api/images/jobs/")) {
+    const jobId = decodeURIComponent(request.url.replace("/api/images/jobs/", ""));
+    const result = handleGetImageJobRequest(jobId);
     writeJson(response, result.status, result.body);
     return;
   }

@@ -1,5 +1,6 @@
 import { removeProductBackground } from "./backgroundRemoval";
 import { createServerIntegrationConfig, type ServerIntegrationConfig } from "./env";
+import { createImageGenerationJob, getImageGenerationJobSnapshot } from "./imageJobQueue";
 import { generateSellerImage, type ImageGenerationRequest } from "./imageGeneration";
 import { createModelRouterConfig, type ModelRouterConfig } from "./modelRouter";
 
@@ -39,6 +40,53 @@ export async function handleGenerateImageRequest(
   return {
     status: 200,
     body: result
+  };
+}
+
+export async function handleCreateImageJobRequest(
+  body: unknown,
+  configOverrides: Partial<ModelRouterConfig> = {},
+  integrationOverrides: Partial<ServerIntegrationConfig> = {}
+): Promise<ImageRouteResponse> {
+  const parsed = parseImageGenerationBody(body);
+  if (!parsed.ok) {
+    return {
+      status: 400,
+      body: { error: parsed.error }
+    };
+  }
+
+  const integrationConfig = createServerIntegrationConfig(integrationOverrides);
+  const job = createImageGenerationJob({
+    request: parsed.body,
+    config: createModelRouterConfig(configOverrides),
+    imageModel: integrationConfig.imageGeneration.model,
+    storageConfig: integrationConfig.storage
+  });
+
+  return {
+    status: 200,
+    body: {
+      jobId: job.id,
+      status: job.status,
+      createdAt: job.createdAt,
+      updatedAt: job.updatedAt
+    }
+  };
+}
+
+export function handleGetImageJobRequest(jobId: string): ImageRouteResponse {
+  const snapshot = getImageGenerationJobSnapshot(jobId);
+  if (!snapshot) {
+    return {
+      status: 400,
+      body: { error: "image_job_not_found" }
+    };
+  }
+
+  return {
+    status: 200,
+    body: snapshot
   };
 }
 

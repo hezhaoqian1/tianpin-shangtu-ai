@@ -2,6 +2,7 @@ import { type PublishPack, type UploadedAsset } from "./productPipeline";
 
 export type AppGeneratedImageSource = "remote" | "mock";
 export type AppGeneratedImageFallbackReason = "missing_endpoint" | "remote_failed" | "missing_image_url";
+export type AppGeneratedImageJobStatus = "queued" | "running" | "succeeded" | "failed";
 
 export type AppGeneratedImageResult =
   | {
@@ -15,17 +16,152 @@ export type AppGeneratedImageResult =
       fallbackReason: AppGeneratedImageFallbackReason;
     };
 
+export type AppGeneratedImageJobCreateResult =
+  | {
+      source: "remote";
+      jobId: string;
+      status: AppGeneratedImageJobStatus;
+    }
+  | {
+      source: "mock";
+      fallbackReason: AppGeneratedImageFallbackReason;
+    };
+
+export type AppGeneratedImageJobSnapshot = {
+  status: AppGeneratedImageJobStatus;
+  asset?: UploadedAsset;
+  fallbackReason?: AppGeneratedImageFallbackReason;
+  error?: string;
+};
+
 export type AppGeneratedImageFetcher = (
   url: string,
   init: {
-    method: "POST";
+    method: "GET" | "POST";
     headers: Record<string, string>;
-    body: string;
+    body?: string;
   }
 ) => Promise<{
   ok: boolean;
   json: () => Promise<unknown>;
 }>;
+
+export async function createCoverImageJobForApp({
+  pack,
+  uploads,
+  endpoint,
+  ownerId,
+  fetcher = fetch as AppGeneratedImageFetcher
+}: {
+  pack: PublishPack;
+  uploads: UploadedAsset[];
+  endpoint?: string;
+  ownerId?: string;
+  fetcher?: AppGeneratedImageFetcher;
+}): Promise<AppGeneratedImageJobCreateResult> {
+  if (!endpoint) {
+    return mockJobCreateResult("missing_endpoint");
+  }
+
+  try {
+    const response = await fetcher(jobCollectionEndpoint(endpoint), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(createGenerationPayload({ pack, uploads, ownerId }))
+    });
+
+    if (!response.ok) {
+      return mockJobCreateResult("remote_failed");
+    }
+
+    const body = asRecord(await response.json());
+    const jobId = optionalString(body.jobId);
+    const status = normalizeJobStatus(body.status);
+    if (!jobId || !status) {
+      return mockJobCreateResult("remote_failed");
+    }
+
+    return {
+      source: "remote",
+      jobId,
+      status
+    };
+  } catch {
+    return mockJobCreateResult("remote_failed");
+  }
+}
+
+export async function getCoverImageJobForApp({
+  pack,
+  jobId,
+  endpoint,
+  fetcher = fetch as AppGeneratedImageFetcher
+}: {
+  pack: PublishPack;
+  jobId: string;
+  endpoint?: string;
+  fetcher?: AppGeneratedImageFetcher;
+}): Promise<AppGeneratedImageJobSnapshot> {
+  if (!endpoint) {
+    return {
+      status: "failed",
+      fallbackReason: "missing_endpoint"
+    };
+  }
+
+  try {
+    const response = await fetcher(`${jobCollectionEndpoint(endpoint)}/${encodeURIComponent(jobId)}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json"
+      }
+    });
+
+    if (!response.ok) {
+      return {
+        status: "failed",
+        fallbackReason: "remote_failed"
+      };
+    }
+
+    const body = asRecord(await response.json());
+    const status = normalizeJobStatus(body.status);
+    if (!status) {
+      return {
+        status: "failed",
+        fallbackReason: "remote_failed"
+      };
+    }
+
+    if (status !== "succeeded") {
+      return {
+        status,
+        error: optionalString(body.error)
+      };
+    }
+
+    const result = asRecord(body.result);
+    const imageUrl = optionalString(result.imageUrl);
+    if (!imageUrl) {
+      return {
+        status: "failed",
+        fallbackReason: "missing_image_url"
+      };
+    }
+
+    return {
+      status,
+      asset: createGeneratedCoverAsset(pack, imageUrl)
+    };
+  } catch {
+    return {
+      status: "failed",
+      fallbackReason: "remote_failed"
+    };
+  }
+}
 
 export async function generateCoverImageForApp({
   pack,
@@ -53,13 +189,7 @@ export async function generateCoverImageForApp({
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        mode: "seller_cover",
-        size: "1024x1024",
-        prompt: buildSellerCoverPrompt(pack),
-        productImageUrl: findPrimaryProductUrl(uploads),
-        ownerId
-      })
+      body: JSON.stringify(createGenerationPayload({ pack, uploads, ownerId }))
     });
 
     if (!response.ok) {
@@ -82,15 +212,7 @@ export async function generateCoverImageForApp({
       source: "remote",
       model: optionalString(body.model),
       storageProvider: optionalString(body.storageProvider),
-      asset: {
-        id: `generated_cover_${pack.id}`,
-        uri: imageUrl,
-        remoteUrl: imageUrl,
-        mimeType: "image/png",
-        label: "AI 生成封面",
-        width: 1024,
-        height: 1024
-      }
+      asset: createGeneratedCoverAsset(pack, imageUrl)
     };
   } catch {
     return {
@@ -98,6 +220,24 @@ export async function generateCoverImageForApp({
       fallbackReason: "remote_failed"
     };
   }
+}
+
+function createGenerationPayload({
+  pack,
+  uploads,
+  ownerId
+}: {
+  pack: PublishPack;
+  uploads: UploadedAsset[];
+  ownerId?: string;
+}) {
+  return {
+    mode: "seller_cover",
+    size: "1024x1024",
+    prompt: buildSellerCoverPrompt(pack),
+    productImageUrl: findPrimaryProductUrl(uploads),
+    ownerId
+  };
 }
 
 function buildSellerCoverPrompt(pack: PublishPack) {
@@ -115,6 +255,37 @@ function buildSellerCoverPrompt(pack: PublishPack) {
 function findPrimaryProductUrl(uploads: UploadedAsset[]) {
   const upload = uploads.find((asset) => asset.remoteUrl || !asset.uri.startsWith("sample://"));
   return upload?.remoteUrl ?? upload?.uri;
+}
+
+function createGeneratedCoverAsset(pack: PublishPack, imageUrl: string): UploadedAsset {
+  return {
+    id: `generated_cover_${pack.id}`,
+    uri: imageUrl,
+    remoteUrl: imageUrl,
+    mimeType: "image/png",
+    label: "AI 生成封面",
+    width: 1024,
+    height: 1024
+  };
+}
+
+function jobCollectionEndpoint(endpoint: string) {
+  return endpoint.replace(/\/api\/images\/generate$/, "/api/images/jobs");
+}
+
+function normalizeJobStatus(value: unknown): AppGeneratedImageJobStatus | undefined {
+  if (value === "queued" || value === "running" || value === "succeeded" || value === "failed") {
+    return value;
+  }
+
+  return undefined;
+}
+
+function mockJobCreateResult(fallbackReason: AppGeneratedImageFallbackReason): AppGeneratedImageJobCreateResult {
+  return {
+    source: "mock",
+    fallbackReason
+  };
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

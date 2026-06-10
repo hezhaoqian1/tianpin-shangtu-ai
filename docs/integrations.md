@@ -145,6 +145,24 @@ Request:
 
 When storage is configured, the route uploads GPT Image output back to the configured S3/R2 bucket under `generated/{ownerId}/{date}/...png` and returns a persistent `imageUrl`. The mobile app uses that URL as an `UploadedAsset`, replaces the current cover canvas with it, and keeps it when saving the project.
 
+For the mobile app, prefer the async job API so long GPT Image requests do not block the editor screen:
+
+```text
+POST /api/images/jobs
+GET /api/images/jobs/{jobId}
+```
+
+`POST /api/images/jobs` accepts the same request body as `/api/images/generate` and immediately returns:
+
+```json
+{
+  "jobId": "img_job_...",
+  "status": "queued"
+}
+```
+
+The app polls `GET /api/images/jobs/{jobId}` until the job reaches `succeeded` or `failed`. On success, `result.imageUrl` contains the persisted R2 image URL.
+
 Variables:
 
 ```env

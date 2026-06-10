@@ -9,7 +9,11 @@ import {
   normalizeEditPrompt
 } from "../shared/editConversation";
 import { type AppEditSource } from "../shared/editClient";
-import { type AppGeneratedImageFallbackReason, type AppGeneratedImageSource } from "../shared/generatedImageClient";
+import {
+  type AppGeneratedImageFallbackReason,
+  type AppGeneratedImageJobStatus,
+  type AppGeneratedImageSource
+} from "../shared/generatedImageClient";
 import { getEditStatus } from "../shared/editStatus";
 import { type PublishPack, type UploadedAsset } from "../shared/productPipeline";
 import { Button } from "../ui/Buttons";
@@ -26,6 +30,7 @@ type EditorScreenProps = {
   editFallbackReason?: string;
   editEndpointConfigured: boolean;
   isGeneratingCover: boolean;
+  generatedImageJobStatus?: AppGeneratedImageJobStatus;
   generatedImageSource?: AppGeneratedImageSource;
   generatedImageFallbackReason?: AppGeneratedImageFallbackReason;
   imageGenerateEndpointConfigured: boolean;
@@ -45,6 +50,7 @@ export function EditorScreen({
   editFallbackReason,
   editEndpointConfigured,
   isGeneratingCover,
+  generatedImageJobStatus,
   generatedImageSource,
   generatedImageFallbackReason,
   imageGenerateEndpointConfigured,
@@ -65,7 +71,8 @@ export function EditorScreen({
     source: generatedImageSource,
     fallbackReason: generatedImageFallbackReason,
     endpointConfigured: imageGenerateEndpointConfigured,
-    isGenerating: isGeneratingCover
+    isGenerating: isGeneratingCover,
+    jobStatus: generatedImageJobStatus
   });
 
   function handleChipPress(chip: string) {
@@ -309,17 +316,26 @@ function getGeneratedImageStatus({
   source,
   fallbackReason,
   endpointConfigured,
-  isGenerating
+  isGenerating,
+  jobStatus
 }: {
   source?: AppGeneratedImageSource;
   fallbackReason?: AppGeneratedImageFallbackReason;
   endpointConfigured: boolean;
   isGenerating: boolean;
+  jobStatus?: AppGeneratedImageJobStatus;
 }) {
   if (isGenerating) {
+    if (jobStatus === "queued") {
+      return {
+        actionLabel: "排队中",
+        detail: "生成任务已创建，正在排队准备调用 GPT Image 2。你可以留在当前页等待，完成后会自动替换封面。"
+      };
+    }
+
     return {
       actionLabel: "生成中",
-      detail: "正在用 GPT Image 2 生成封面，通常需要 1-2 分钟。完成后会自动替换当前封面并保存云端 URL。"
+      detail: "GPT Image 2 正在生成封面，通常需要 1-3 分钟。任务在后台进行，完成后会自动保存到云端并替换当前封面。"
     };
   }
 

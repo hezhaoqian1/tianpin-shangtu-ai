@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SafeAreaView, StyleSheet, View } from "react-native";
 
 import { AccountScreen } from "./src/screens/AccountScreen";
@@ -19,8 +19,10 @@ import { analyzeUploadsForApp, type AppAnalysisSource } from "./src/shared/analy
 import { normalizeEditPrompt } from "./src/shared/editConversation";
 import { createEditCommandForApp, type AppEditSource } from "./src/shared/editClient";
 import {
-  generateCoverImageForApp,
+  createCoverImageJobForApp,
+  getCoverImageJobForApp,
   type AppGeneratedImageFallbackReason,
+  type AppGeneratedImageJobStatus,
   type AppGeneratedImageSource
 } from "./src/shared/generatedImageClient";
 import { mapPickedImagesToUploads } from "./src/shared/imagePicker";
@@ -66,6 +68,8 @@ export default function App() {
   const [editSource, setEditSource] = useState<AppEditSource | undefined>(undefined);
   const [editFallbackReason, setEditFallbackReason] = useState<string | undefined>(undefined);
   const [isGeneratingCover, setIsGeneratingCover] = useState(false);
+  const [generatedImageJobId, setGeneratedImageJobId] = useState<string | undefined>(undefined);
+  const [generatedImageJobStatus, setGeneratedImageJobStatus] = useState<AppGeneratedImageJobStatus | undefined>(undefined);
   const [generatedImageSource, setGeneratedImageSource] = useState<AppGeneratedImageSource | undefined>(undefined);
   const [generatedImageFallbackReason, setGeneratedImageFallbackReason] = useState<AppGeneratedImageFallbackReason | undefined>(undefined);
   const [session, setSession] = useState<UserSession>(() => createGuestSession());
@@ -101,6 +105,8 @@ export default function App() {
     setEditSource(undefined);
     setEditFallbackReason(undefined);
     setIsGeneratingCover(false);
+    setGeneratedImageJobId(undefined);
+    setGeneratedImageJobStatus(undefined);
     setGeneratedImageSource(undefined);
     setGeneratedImageFallbackReason(undefined);
     setExportSaveMessage(null);
@@ -186,6 +192,9 @@ export default function App() {
     setSelectedPack(pack);
     setEditSource(undefined);
     setEditFallbackReason(undefined);
+    setIsGeneratingCover(false);
+    setGeneratedImageJobId(undefined);
+    setGeneratedImageJobStatus(undefined);
     setGeneratedImageSource(undefined);
     setGeneratedImageFallbackReason(undefined);
     setExportSaveMessage(null);
@@ -215,15 +224,66 @@ export default function App() {
     setIsEditing(false);
   }
 
+  useEffect(() => {
+    if (!generatedImageJobId || !selectedPack || !isGeneratingCover) {
+      return undefined;
+    }
+
+    let canceled = false;
+    const poll = async () => {
+      const result = await getCoverImageJobForApp({
+        pack: selectedPack,
+        jobId: generatedImageJobId,
+        endpoint: imageGenerateEndpoint
+      });
+
+      if (canceled) {
+        return;
+      }
+
+      setGeneratedImageJobStatus(result.status);
+
+      if (result.status === "succeeded" && result.asset) {
+        const generatedAsset = result.asset;
+        setUploads((currentUploads) => [
+          generatedAsset,
+          ...currentUploads.filter((asset) => asset.id !== generatedAsset.id)
+        ]);
+        setSelectedPack((currentPack) => (currentPack ? applyGeneratedCoverImage(currentPack, generatedAsset) : currentPack));
+        setGeneratedImageSource("remote");
+        setGeneratedImageFallbackReason(undefined);
+        setIsGeneratingCover(false);
+      }
+
+      if (result.status === "failed") {
+        setGeneratedImageSource("mock");
+        setGeneratedImageFallbackReason(result.fallbackReason ?? "remote_failed");
+        setIsGeneratingCover(false);
+      }
+    };
+
+    void poll();
+    const interval = setInterval(() => {
+      void poll();
+    }, 3000);
+
+    return () => {
+      canceled = true;
+      clearInterval(interval);
+    };
+  }, [generatedImageJobId, isGeneratingCover, selectedPack]);
+
   async function generateCoverImage() {
     if (!selectedPack || isGeneratingCover) {
       return;
     }
 
     setIsGeneratingCover(true);
+    setGeneratedImageJobId(undefined);
+    setGeneratedImageJobStatus("queued");
     setGeneratedImageSource(undefined);
     setGeneratedImageFallbackReason(undefined);
-    const result = await generateCoverImageForApp({
+    const result = await createCoverImageJobForApp({
       pack: selectedPack,
       uploads,
       endpoint: imageGenerateEndpoint,
@@ -231,19 +291,16 @@ export default function App() {
     });
 
     if (result.source === "remote") {
-      setUploads((currentUploads) => [
-        result.asset,
-        ...currentUploads.filter((asset) => asset.id !== result.asset.id)
-      ]);
-      setSelectedPack(applyGeneratedCoverImage(selectedPack, result.asset));
+      setGeneratedImageJobId(result.jobId);
+      setGeneratedImageJobStatus(result.status);
       setGeneratedImageSource(result.source);
       setGeneratedImageFallbackReason(undefined);
     } else {
+      setIsGeneratingCover(false);
+      setGeneratedImageJobStatus("failed");
       setGeneratedImageSource(result.source);
       setGeneratedImageFallbackReason(result.fallbackReason);
     }
-
-    setIsGeneratingCover(false);
   }
 
   function saveCurrentProject() {
@@ -339,6 +396,7 @@ export default function App() {
             editFallbackReason={editFallbackReason}
             editEndpointConfigured={Boolean(editEndpoint)}
             isGeneratingCover={isGeneratingCover}
+            generatedImageJobStatus={generatedImageJobStatus}
             generatedImageSource={generatedImageSource}
             generatedImageFallbackReason={generatedImageFallbackReason}
             imageGenerateEndpointConfigured={Boolean(imageGenerateEndpoint)}
