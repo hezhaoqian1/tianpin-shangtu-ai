@@ -243,7 +243,56 @@ Default:
 BACKGROUND_REMOVAL_PROVIDER=mock
 ```
 
-## 6. Server Image Processing
+## 6. Export Bundle Manifest
+
+Purpose:
+
+- Turn the current publish pack into a platform-ready export manifest.
+- Give the app a concrete file list, publish copy, and checklist before the user leaves for Xianyu/Xiaohongshu/shop tools.
+
+Code:
+
+- `src/shared/exportBundle.ts`
+- `src/shared/exportClient.ts`
+- `src/server/exportRoute.ts`
+
+API:
+
+```text
+POST /api/exports/prepare
+```
+
+Request:
+
+```json
+{
+  "pack": {},
+  "session": {}
+}
+```
+
+Response:
+
+```json
+{
+  "manifest": {
+    "exportId": "export_...",
+    "platformLabel": "闲鱼卖货",
+    "summary": "2 张图片 / 3 个标题 / 4 个标签",
+    "files": [],
+    "publishCopy": "...",
+    "checklist": []
+  }
+}
+```
+
+Expo variable:
+
+```env
+EXPO_PUBLIC_EXPORT_ENDPOINT=https://your-service.up.railway.app/api/exports/prepare
+```
+
+## 7. Server Image Processing
 
 Purpose:
 

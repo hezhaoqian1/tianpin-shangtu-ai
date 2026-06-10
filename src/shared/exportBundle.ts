@@ -20,6 +20,24 @@ export type ExportBundle = {
   highResUnlocked: boolean;
 };
 
+export type ExportManifestFile = {
+  id: string;
+  kind: "image" | "copy" | "tags";
+  fileName: string;
+  label: string;
+  detail: string;
+  format: "PNG" | "TXT";
+};
+
+export type ExportManifest = {
+  exportId: string;
+  platformLabel: string;
+  summary: string;
+  files: ExportManifestFile[];
+  publishCopy: string;
+  checklist: string[];
+};
+
 export type ExportActionResult =
   | {
       status: "ready";
@@ -59,6 +77,45 @@ export function createExportBundle(pack: PublishPack, session: UserSession): Exp
   };
 }
 
+export function createExportManifest(pack: PublishPack, session: UserSession, exportId = createLocalExportId()): ExportManifest {
+  const bundle = createExportBundle(pack, session);
+  const imageFiles: ExportManifestFile[] = pack.canvases.map((canvas, index) => ({
+    id: canvas.id,
+    kind: "image",
+    fileName: `${String(index + 1).padStart(2, "0")}-${canvas.type}.png`,
+    label: getCanvasLabel(canvas.type),
+    detail: `${canvas.width}x${canvas.height} PNG`,
+    format: "PNG"
+  }));
+
+  return {
+    exportId,
+    platformLabel: bundle.platformLabel,
+    summary: bundle.summary,
+    files: [
+      ...imageFiles,
+      {
+        id: "publish_copy",
+        kind: "copy",
+        fileName: "publish-copy.txt",
+        label: "发布文案",
+        detail: `${pack.copy.titles.length} 个标题候选和 1 段描述`,
+        format: "TXT"
+      },
+      {
+        id: "publish_tags",
+        kind: "tags",
+        fileName: "publish-tags.txt",
+        label: "平台标签",
+        detail: `${pack.copy.tags.length} 个标签`,
+        format: "TXT"
+      }
+    ],
+    publishCopy: bundle.publishCopy,
+    checklist: getPlatformChecklist(pack.platform)
+  };
+}
+
 export function formatPublishCopy(pack: PublishPack): string {
   return [
     pack.copy.titles[0],
@@ -67,6 +124,10 @@ export function formatPublishCopy(pack: PublishPack): string {
     "",
     pack.copy.tags.map((tag) => `#${tag}`).join(" ")
   ].join("\n");
+}
+
+function createLocalExportId() {
+  return `export_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export function evaluateExportAction(action: ExportAction, session: UserSession, pack?: PublishPack): ExportActionResult {
@@ -139,4 +200,16 @@ function getPlatformLabel(platform: Platform): string {
   };
 
   return labels[platform];
+}
+
+function getPlatformChecklist(platform: Platform): string[] {
+  const common = ["上传封面图并确认第一屏主体清晰", "粘贴发布文案并检查成色描述", "确认标签和价格不夸大"];
+  const platformSteps: Record<Platform, string[]> = {
+    xianyu: ["补充瑕疵说明图，降低售后沟通成本", "确认交易方式和自提/邮寄说明"],
+    xiaohongshu: ["把生活方式图放在第二张，避免首图过度营销", "检查种草语气是否真实克制"],
+    shop_main: ["确认主图背景干净，主体占比适合货架流", "检查规格、配件和售后说明"],
+    wechat: ["把价格和交易方式写在前两行", "确认朋友圈语气自然可信"]
+  };
+
+  return [...common, ...platformSteps[platform]];
 }

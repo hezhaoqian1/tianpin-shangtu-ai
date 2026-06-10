@@ -61,6 +61,7 @@ const editEndpoint = process.env.EXPO_PUBLIC_EDIT_ENDPOINT ?? "";
 const uploadEndpoint = process.env.EXPO_PUBLIC_UPLOAD_ENDPOINT ?? "";
 const imageGenerateEndpoint = process.env.EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT ?? "";
 const projectEndpoint = process.env.EXPO_PUBLIC_PROJECTS_ENDPOINT ?? "";
+const exportEndpoint = process.env.EXPO_PUBLIC_EXPORT_ENDPOINT ?? "";
 
 export default function App() {
   const [launchComplete, setLaunchComplete] = useState(false);
@@ -536,6 +537,7 @@ export default function App() {
             pack={selectedPack}
             uploads={uploads}
             session={session}
+            exportEndpoint={exportEndpoint}
             saveMessage={exportSaveMessage}
             onLogin={completeAuth}
             onSaveProject={saveCurrentProject}

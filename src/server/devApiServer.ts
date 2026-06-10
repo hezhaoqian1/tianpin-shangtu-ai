@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import { handleAnalyzeRequest } from "./analyzeRoute";
 import { handleEditRequest } from "./editRoute";
+import { handlePrepareExportRequest } from "./exportRoute";
 import {
   handleCreateImageJobRequest,
   handleGenerateImageRequest,
@@ -54,6 +55,13 @@ const server = createServer(async (request, response) => {
   if (request.method === "POST" && request.url === "/api/projects") {
     const body = await readJsonBody(request);
     const result = await handleSaveProjectRequest(body);
+    writeJson(response, result.status, result.body);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/api/exports/prepare") {
+    const body = await readJsonBody(request);
+    const result = await handlePrepareExportRequest(body);
     writeJson(response, result.status, result.body);
     return;
   }

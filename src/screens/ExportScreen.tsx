@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { copyTextToClipboard } from "../shared/clipboardClient";
+import { prepareExportForApp } from "../shared/exportClient";
 import { createExportBundle, evaluateExportAction, type ExportAction } from "../shared/exportBundle";
 import { type PublishPack, type UploadedAsset } from "../shared/productPipeline";
 import { getLoginPromptCopy, type UserSession } from "../shared/session";
@@ -14,6 +15,7 @@ type ExportScreenProps = {
   pack: PublishPack;
   uploads: UploadedAsset[];
   session: UserSession;
+  exportEndpoint?: string;
   saveMessage: string | null;
   onLogin: () => void;
   onSaveProject: () => void | Promise<void>;
@@ -25,6 +27,7 @@ export function ExportScreen({
   pack,
   uploads,
   session,
+  exportEndpoint,
   saveMessage,
   onLogin,
   onSaveProject,
@@ -55,6 +58,27 @@ export function ExportScreen({
     if (result.status === "login_required") {
       setLocalExportMessage(result.prompt.body);
       onLogin();
+      return;
+    }
+
+    if (action === "standard") {
+      const exportResult = await prepareExportForApp({
+        endpoint: exportEndpoint,
+        pack,
+        session
+      });
+      const fileCount = exportResult.manifest.files.length;
+      if (exportResult.status === "ready") {
+        setLocalExportMessage(`标准导出包已生成：${fileCount} 个文件，发布清单已准备。`);
+        return;
+      }
+
+      if (exportResult.status === "local_only") {
+        setLocalExportMessage(`标准导出包已在本机准备：${fileCount} 个文件；配置导出接口后可记录云端导出。`);
+        return;
+      }
+
+      setLocalExportMessage(`标准导出包已在本机准备：${fileCount} 个文件；云端导出记录暂时失败。`);
       return;
     }
 
