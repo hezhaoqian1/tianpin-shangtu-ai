@@ -20,10 +20,11 @@ import { normalizeEditPrompt } from "./src/shared/editConversation";
 import { createEditCommandForApp, type AppEditSource } from "./src/shared/editClient";
 import {
   createCoverImageJobForApp,
+  generatedCoverVariants,
   getCoverImageJobForApp,
   type AppGeneratedImageFallbackReason,
   type AppGeneratedImageJobStatus,
-  type AppGeneratedImageSource
+  type GeneratedCoverVariantId
 } from "./src/shared/generatedImageClient";
 import { mapPickedImagesToUploads } from "./src/shared/imagePicker";
 import {
@@ -44,6 +45,15 @@ import { AppShell, type MainTab } from "./src/ui/AppShell";
 import { palette } from "./src/ui/theme";
 
 type FlowStep = "idle" | "upload" | "diagnosis" | "packs" | "editor" | "export";
+type GeneratedCoverJobView = {
+  variantId: GeneratedCoverVariantId;
+  title: string;
+  summary: string;
+  status: AppGeneratedImageJobStatus | "idle";
+  jobId?: string;
+  asset?: UploadedAsset;
+  fallbackReason?: AppGeneratedImageFallbackReason;
+};
 
 const analyzeEndpoint = process.env.EXPO_PUBLIC_ANALYZE_ENDPOINT ?? "";
 const editEndpoint = process.env.EXPO_PUBLIC_EDIT_ENDPOINT ?? "";
@@ -67,11 +77,7 @@ export default function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [editSource, setEditSource] = useState<AppEditSource | undefined>(undefined);
   const [editFallbackReason, setEditFallbackReason] = useState<string | undefined>(undefined);
-  const [isGeneratingCover, setIsGeneratingCover] = useState(false);
-  const [generatedImageJobId, setGeneratedImageJobId] = useState<string | undefined>(undefined);
-  const [generatedImageJobStatus, setGeneratedImageJobStatus] = useState<AppGeneratedImageJobStatus | undefined>(undefined);
-  const [generatedImageSource, setGeneratedImageSource] = useState<AppGeneratedImageSource | undefined>(undefined);
-  const [generatedImageFallbackReason, setGeneratedImageFallbackReason] = useState<AppGeneratedImageFallbackReason | undefined>(undefined);
+  const [generatedCoverJobs, setGeneratedCoverJobs] = useState<GeneratedCoverJobView[]>(() => createGeneratedCoverJobViews());
   const [session, setSession] = useState<UserSession>(() => createGuestSession());
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [exportSaveMessage, setExportSaveMessage] = useState<string | null>(null);
@@ -84,6 +90,10 @@ export default function App() {
     const order: FlowStep[] = ["upload", "diagnosis", "packs", "editor", "export"];
     return order.indexOf(flowStep) / (order.length - 1);
   }, [flowStep]);
+  const isGeneratingCover = useMemo(
+    () => generatedCoverJobs.some((job) => job.status === "queued" || job.status === "running"),
+    [generatedCoverJobs]
+  );
 
   function completeAuth() {
     setSession(createDemoUserSession());
@@ -104,11 +114,7 @@ export default function App() {
     setIsEditing(false);
     setEditSource(undefined);
     setEditFallbackReason(undefined);
-    setIsGeneratingCover(false);
-    setGeneratedImageJobId(undefined);
-    setGeneratedImageJobStatus(undefined);
-    setGeneratedImageSource(undefined);
-    setGeneratedImageFallbackReason(undefined);
+    setGeneratedCoverJobs(createGeneratedCoverJobViews());
     setExportSaveMessage(null);
   }
 
@@ -192,11 +198,7 @@ export default function App() {
     setSelectedPack(pack);
     setEditSource(undefined);
     setEditFallbackReason(undefined);
-    setIsGeneratingCover(false);
-    setGeneratedImageJobId(undefined);
-    setGeneratedImageJobStatus(undefined);
-    setGeneratedImageSource(undefined);
-    setGeneratedImageFallbackReason(undefined);
+    setGeneratedCoverJobs(createGeneratedCoverJobViews());
     setExportSaveMessage(null);
     setFlowStep("editor");
   }
@@ -225,41 +227,61 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!generatedImageJobId || !selectedPack || !isGeneratingCover) {
+    const activeJobs = generatedCoverJobs.filter(
+      (job) => job.jobId && (job.status === "queued" || job.status === "running")
+    );
+    if (!selectedPack || activeJobs.length === 0) {
       return undefined;
     }
 
     let canceled = false;
     const poll = async () => {
-      const result = await getCoverImageJobForApp({
-        pack: selectedPack,
-        jobId: generatedImageJobId,
-        endpoint: imageGenerateEndpoint
-      });
+      const snapshots = await Promise.all(
+        activeJobs.map(async (job) => {
+          const variant = generatedCoverVariants.find((item) => item.id === job.variantId);
+          const result = await getCoverImageJobForApp({
+            pack: selectedPack,
+            jobId: job.jobId!,
+            endpoint: imageGenerateEndpoint,
+            variant
+          });
+
+          return {
+            variantId: job.variantId,
+            result
+          };
+        })
+      );
 
       if (canceled) {
         return;
       }
 
-      setGeneratedImageJobStatus(result.status);
-
-      if (result.status === "succeeded" && result.asset) {
-        const generatedAsset = result.asset;
+      const generatedAssets = snapshots
+        .map((snapshot) => snapshot.result.asset)
+        .filter((asset): asset is UploadedAsset => Boolean(asset));
+      if (generatedAssets.length > 0) {
         setUploads((currentUploads) => [
-          generatedAsset,
-          ...currentUploads.filter((asset) => asset.id !== generatedAsset.id)
+          ...generatedAssets,
+          ...currentUploads.filter((asset) => !generatedAssets.some((generatedAsset) => generatedAsset.id === asset.id))
         ]);
-        setSelectedPack((currentPack) => (currentPack ? applyGeneratedCoverImage(currentPack, generatedAsset) : currentPack));
-        setGeneratedImageSource("remote");
-        setGeneratedImageFallbackReason(undefined);
-        setIsGeneratingCover(false);
       }
 
-      if (result.status === "failed") {
-        setGeneratedImageSource("mock");
-        setGeneratedImageFallbackReason(result.fallbackReason ?? "remote_failed");
-        setIsGeneratingCover(false);
-      }
+      setGeneratedCoverJobs((currentJobs) =>
+        currentJobs.map((job) => {
+          const snapshot = snapshots.find((item) => item.variantId === job.variantId);
+          if (!snapshot) {
+            return job;
+          }
+
+          return {
+            ...job,
+            status: snapshot.result.status,
+            asset: snapshot.result.asset ?? job.asset,
+            fallbackReason: snapshot.result.fallbackReason
+          };
+        })
+      );
     };
 
     void poll();
@@ -271,36 +293,86 @@ export default function App() {
       canceled = true;
       clearInterval(interval);
     };
-  }, [generatedImageJobId, isGeneratingCover, selectedPack]);
+  }, [generatedCoverJobs, selectedPack]);
 
   async function generateCoverImage() {
     if (!selectedPack || isGeneratingCover) {
       return;
     }
 
-    setIsGeneratingCover(true);
-    setGeneratedImageJobId(undefined);
-    setGeneratedImageJobStatus("queued");
-    setGeneratedImageSource(undefined);
-    setGeneratedImageFallbackReason(undefined);
+    setGeneratedCoverJobs(createGeneratedCoverJobViews("queued"));
+    await Promise.all(generatedCoverVariants.map((variant) => startGeneratedCoverJob(variant.id)));
+  }
+
+  async function retryGeneratedCover(variantId: GeneratedCoverVariantId) {
+    if (!selectedPack) {
+      return;
+    }
+
+    setGeneratedCoverJobs((jobs) =>
+      jobs.map((job) =>
+        job.variantId === variantId
+          ? {
+              ...job,
+              status: "queued",
+              jobId: undefined,
+              fallbackReason: undefined
+            }
+          : job
+      )
+    );
+    await startGeneratedCoverJob(variantId);
+  }
+
+  async function startGeneratedCoverJob(variantId: GeneratedCoverVariantId) {
+    if (!selectedPack) {
+      return;
+    }
+
+    const variant = generatedCoverVariants.find((item) => item.id === variantId);
+    if (!variant) {
+      return;
+    }
+
     const result = await createCoverImageJobForApp({
       pack: selectedPack,
       uploads,
       endpoint: imageGenerateEndpoint,
-      ownerId: session.id
+      ownerId: session.id,
+      variant
     });
 
-    if (result.source === "remote") {
-      setGeneratedImageJobId(result.jobId);
-      setGeneratedImageJobStatus(result.status);
-      setGeneratedImageSource(result.source);
-      setGeneratedImageFallbackReason(undefined);
-    } else {
-      setIsGeneratingCover(false);
-      setGeneratedImageJobStatus("failed");
-      setGeneratedImageSource(result.source);
-      setGeneratedImageFallbackReason(result.fallbackReason);
+    setGeneratedCoverJobs((jobs) =>
+      jobs.map((job) => {
+        if (job.variantId !== variantId) {
+          return job;
+        }
+
+        if (result.source === "remote") {
+          return {
+            ...job,
+            status: result.status,
+            jobId: result.jobId,
+            fallbackReason: undefined
+          };
+        }
+
+        return {
+          ...job,
+          status: "failed",
+          fallbackReason: result.fallbackReason
+        };
+      })
+    );
+  }
+
+  function selectGeneratedCover(variantId: GeneratedCoverVariantId) {
+    const job = generatedCoverJobs.find((item) => item.variantId === variantId);
+    if (!job?.asset) {
+      return;
     }
+
+    setSelectedPack((currentPack) => (currentPack ? applyGeneratedCoverImage(currentPack, job.asset!) : currentPack));
   }
 
   function saveCurrentProject() {
@@ -396,12 +468,12 @@ export default function App() {
             editFallbackReason={editFallbackReason}
             editEndpointConfigured={Boolean(editEndpoint)}
             isGeneratingCover={isGeneratingCover}
-            generatedImageJobStatus={generatedImageJobStatus}
-            generatedImageSource={generatedImageSource}
-            generatedImageFallbackReason={generatedImageFallbackReason}
+            generatedCoverJobs={generatedCoverJobs}
             imageGenerateEndpointConfigured={Boolean(imageGenerateEndpoint)}
             onApplyEdit={applyDemoEdit}
             onGenerateCover={generateCoverImage}
+            onRetryGeneratedCover={retryGeneratedCover}
+            onSelectGeneratedCover={selectGeneratedCover}
             onExport={() => setFlowStep("export")}
           />
         ) : null}
@@ -464,6 +536,15 @@ export default function App() {
       </View>
     </SafeAreaView>
   );
+}
+
+function createGeneratedCoverJobViews(status: GeneratedCoverJobView["status"] = "idle"): GeneratedCoverJobView[] {
+  return generatedCoverVariants.map((variant) => ({
+    variantId: variant.id,
+    title: variant.title,
+    summary: variant.summary,
+    status
+  }));
 }
 
 const styles = StyleSheet.create({

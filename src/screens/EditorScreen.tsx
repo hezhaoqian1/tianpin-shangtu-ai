@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import {
   appendEditSuggestion,
@@ -12,7 +12,7 @@ import { type AppEditSource } from "../shared/editClient";
 import {
   type AppGeneratedImageFallbackReason,
   type AppGeneratedImageJobStatus,
-  type AppGeneratedImageSource
+  type GeneratedCoverVariantId
 } from "../shared/generatedImageClient";
 import { getEditStatus } from "../shared/editStatus";
 import { type PublishPack, type UploadedAsset } from "../shared/productPipeline";
@@ -20,6 +20,15 @@ import { Button } from "../ui/Buttons";
 import { CanvasPreview } from "../ui/CanvasPreview";
 import { Screen } from "../ui/Screen";
 import { palette, spacing } from "../ui/theme";
+
+type GeneratedCoverJobView = {
+  variantId: GeneratedCoverVariantId;
+  title: string;
+  summary: string;
+  status: AppGeneratedImageJobStatus | "idle";
+  asset?: UploadedAsset;
+  fallbackReason?: AppGeneratedImageFallbackReason;
+};
 
 type EditorScreenProps = {
   pack: PublishPack;
@@ -30,12 +39,12 @@ type EditorScreenProps = {
   editFallbackReason?: string;
   editEndpointConfigured: boolean;
   isGeneratingCover: boolean;
-  generatedImageJobStatus?: AppGeneratedImageJobStatus;
-  generatedImageSource?: AppGeneratedImageSource;
-  generatedImageFallbackReason?: AppGeneratedImageFallbackReason;
+  generatedCoverJobs: GeneratedCoverJobView[];
   imageGenerateEndpointConfigured: boolean;
   onApplyEdit: (userMessage: string) => void;
   onGenerateCover: () => void;
+  onRetryGeneratedCover: (variantId: GeneratedCoverVariantId) => void;
+  onSelectGeneratedCover: (variantId: GeneratedCoverVariantId) => void;
   onExport: () => void;
 };
 
@@ -50,12 +59,12 @@ export function EditorScreen({
   editFallbackReason,
   editEndpointConfigured,
   isGeneratingCover,
-  generatedImageJobStatus,
-  generatedImageSource,
-  generatedImageFallbackReason,
+  generatedCoverJobs,
   imageGenerateEndpointConfigured,
   onApplyEdit,
   onGenerateCover,
+  onRetryGeneratedCover,
+  onSelectGeneratedCover,
   onExport
 }: EditorScreenProps) {
   const [editPrompt, setEditPrompt] = useState(() => getDefaultEditPrompt());
@@ -68,11 +77,9 @@ export function EditorScreen({
     fallbackReason: editFallbackReason
   });
   const generatedStatus = getGeneratedImageStatus({
-    source: generatedImageSource,
-    fallbackReason: generatedImageFallbackReason,
     endpointConfigured: imageGenerateEndpointConfigured,
     isGenerating: isGeneratingCover,
-    jobStatus: generatedImageJobStatus
+    jobs: generatedCoverJobs
   });
 
   function handleChipPress(chip: string) {
@@ -110,6 +117,43 @@ export function EditorScreen({
           onPress={handleGenerateCover}
           variant={imageGenerateEndpointConfigured && !isGeneratingCover ? "primary" : "secondary"}
         />
+        <View style={styles.variantList}>
+          {generatedCoverJobs.map((job) => {
+            const status = getGeneratedCoverJobStatus(job);
+            return (
+              <View key={job.variantId} style={styles.variantCard}>
+                <View style={styles.variantHeader}>
+                  <View style={styles.variantCopy}>
+                    <Text style={styles.variantTitle}>{job.title}</Text>
+                    <Text style={styles.variantSummary}>{job.summary}</Text>
+                  </View>
+                  <View style={styles.variantBadge}>
+                    <Text style={styles.variantBadgeText}>{status.label}</Text>
+                  </View>
+                </View>
+                {job.asset ? (
+                  <Image source={{ uri: job.asset.uri }} style={styles.variantImage} resizeMode="cover" />
+                ) : (
+                  <View style={styles.variantPlaceholder}>
+                    <Text style={styles.variantPlaceholderText}>{status.detail}</Text>
+                  </View>
+                )}
+                <View style={styles.variantActions}>
+                  {job.status === "succeeded" && job.asset ? (
+                    <Pressable onPress={() => onSelectGeneratedCover(job.variantId)} style={styles.variantActionPrimary}>
+                      <Text style={styles.variantActionPrimaryText}>设为封面</Text>
+                    </Pressable>
+                  ) : null}
+                  {job.status === "failed" ? (
+                    <Pressable onPress={() => onRetryGeneratedCover(job.variantId)} style={styles.variantActionSecondary}>
+                      <Text style={styles.variantActionSecondaryText}>重试</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+        </View>
       </View>
 
       <View style={styles.toolbar}>
@@ -222,6 +266,106 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: "700"
   },
+  variantList: {
+    gap: spacing.md
+  },
+  variantCard: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surfaceMuted,
+    padding: spacing.md,
+    gap: spacing.sm
+  },
+  variantHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.md
+  },
+  variantCopy: {
+    flex: 1,
+    gap: 4
+  },
+  variantTitle: {
+    color: palette.ink,
+    fontSize: 15,
+    fontWeight: "900"
+  },
+  variantSummary: {
+    color: palette.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700"
+  },
+  variantBadge: {
+    borderRadius: 999,
+    backgroundColor: palette.greenSoft,
+    paddingHorizontal: 9,
+    paddingVertical: 5
+  },
+  variantBadgeText: {
+    color: palette.green,
+    fontSize: 11,
+    fontWeight: "900"
+  },
+  variantImage: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: 8,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.line
+  },
+  variantPlaceholder: {
+    minHeight: 74,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.md
+  },
+  variantPlaceholderText: {
+    color: palette.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: "center",
+    fontWeight: "700"
+  },
+  variantActions: {
+    flexDirection: "row",
+    gap: spacing.sm
+  },
+  variantActionPrimary: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 8,
+    backgroundColor: palette.ink,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  variantActionPrimaryText: {
+    color: palette.white,
+    fontSize: 13,
+    fontWeight: "900"
+  },
+  variantActionSecondary: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: palette.line,
+    backgroundColor: palette.surface,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  variantActionSecondaryText: {
+    color: palette.ink,
+    fontSize: 13,
+    fontWeight: "900"
+  },
   panelTitle: {
     color: palette.ink,
     fontSize: 17,
@@ -313,29 +457,25 @@ const styles = StyleSheet.create({
 });
 
 function getGeneratedImageStatus({
-  source,
-  fallbackReason,
   endpointConfigured,
   isGenerating,
-  jobStatus
+  jobs
 }: {
-  source?: AppGeneratedImageSource;
-  fallbackReason?: AppGeneratedImageFallbackReason;
   endpointConfigured: boolean;
   isGenerating: boolean;
-  jobStatus?: AppGeneratedImageJobStatus;
+  jobs: GeneratedCoverJobView[];
 }) {
   if (isGenerating) {
-    if (jobStatus === "queued") {
+    if (jobs.some((job) => job.status === "queued")) {
       return {
         actionLabel: "排队中",
-        detail: "生成任务已创建，正在排队准备调用 GPT Image 2。你可以留在当前页等待，完成后会自动替换封面。"
+        detail: "三版封面任务已创建，正在排队准备调用 GPT Image 2。你可以留在当前页等待，也可以先继续看文案。"
       };
     }
 
     return {
       actionLabel: "生成中",
-      detail: "GPT Image 2 正在生成封面，通常需要 1-3 分钟。任务在后台进行，完成后会自动保存到云端并替换当前封面。"
+      detail: "GPT Image 2 正在生成多版封面，通常需要 1-3 分钟。完成后你可以挑一张设为封面。"
     };
   }
 
@@ -346,29 +486,57 @@ function getGeneratedImageStatus({
     };
   }
 
-  if (source === "remote") {
+  if (jobs.some((job) => job.status === "succeeded")) {
     return {
-      actionLabel: "重新生成",
-      detail: "封面已由 GPT Image 2 生成，并保存为云端图片；保存作品后可继续在作品库打开。"
+      actionLabel: "重新生成三版",
+      detail: "已有 AI 封面生成成功。选择你最满意的一版设为当前封面，也可以重新生成三版。"
     };
   }
 
-  if (fallbackReason === "missing_image_url") {
+  if (jobs.some((job) => job.status === "failed")) {
     return {
-      actionLabel: "重试生成",
-      detail: "模型返回了结果，但没有可展示的图片 URL。请重试一次。"
-    };
-  }
-
-  if (fallbackReason === "remote_failed") {
-    return {
-      actionLabel: "重试生成",
-      detail: "生图服务这次没有成功返回，可能是网络或模型耗时问题。"
+      actionLabel: "重新生成三版",
+      detail: "有封面生成失败，可以单独重试失败项，也可以重新生成三版。"
     };
   }
 
   return {
-    actionLabel: "AI 生成封面",
-    detail: "基于当前商品图、平台和文案生成一张可发布封面；商品成色和瑕疵不应被美化。"
+    actionLabel: "AI 生成三版封面",
+    detail: "基于当前商品图、平台和文案生成三版封面：闲鱼真实风、干净主图风、小红书种草风。"
+  };
+}
+
+function getGeneratedCoverJobStatus(job: GeneratedCoverJobView) {
+  if (job.status === "queued") {
+    return {
+      label: "排队中",
+      detail: "正在创建生成任务"
+    };
+  }
+
+  if (job.status === "running") {
+    return {
+      label: "生成中",
+      detail: "AI 正在生成这一版封面"
+    };
+  }
+
+  if (job.status === "succeeded") {
+    return {
+      label: "已生成",
+      detail: "可以设为当前封面"
+    };
+  }
+
+  if (job.status === "failed") {
+    return {
+      label: "失败",
+      detail: job.fallbackReason === "missing_image_url" ? "没有拿到图片 URL" : "生成失败，可重试"
+    };
+  }
+
+  return {
+    label: "待生成",
+    detail: "等待你开始生成"
   };
 }

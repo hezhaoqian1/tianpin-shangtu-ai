@@ -3,6 +3,38 @@ import { type PublishPack, type UploadedAsset } from "./productPipeline";
 export type AppGeneratedImageSource = "remote" | "mock";
 export type AppGeneratedImageFallbackReason = "missing_endpoint" | "remote_failed" | "missing_image_url";
 export type AppGeneratedImageJobStatus = "queued" | "running" | "succeeded" | "failed";
+export type GeneratedCoverVariantId = "xianyu_authentic" | "clean_shop" | "xiaohongshu_seed";
+
+export type GeneratedCoverVariant = {
+  id: GeneratedCoverVariantId;
+  title: string;
+  summary: string;
+  promptInstruction: string;
+};
+
+export const generatedCoverVariants: GeneratedCoverVariant[] = [
+  {
+    id: "xianyu_authentic",
+    title: "闲鱼真实风",
+    summary: "个人卖家语气，保留二手成色和真实细节。",
+    promptInstruction:
+      "Xianyu authentic resale cover. Make it feel like a trustworthy personal seller listing, not a polished advertisement."
+  },
+  {
+    id: "clean_shop",
+    title: "干净主图风",
+    summary: "清爽背景，主体明确，适合商品主图和小店。",
+    promptInstruction:
+      "Clean product main image. Use a neutral background, clear product focus, tidy lighting, and enough whitespace for mobile commerce."
+  },
+  {
+    id: "xiaohongshu_seed",
+    title: "小红书种草风",
+    summary: "更有生活感和种草氛围，但不夸大成色。",
+    promptInstruction:
+      "Xiaohongshu lifestyle seeding cover. Add tasteful lifestyle context while keeping the product condition truthful and not over-polished."
+  }
+];
 
 export type AppGeneratedImageResult =
   | {
@@ -51,12 +83,14 @@ export async function createCoverImageJobForApp({
   uploads,
   endpoint,
   ownerId,
+  variant,
   fetcher = fetch as AppGeneratedImageFetcher
 }: {
   pack: PublishPack;
   uploads: UploadedAsset[];
   endpoint?: string;
   ownerId?: string;
+  variant?: GeneratedCoverVariant;
   fetcher?: AppGeneratedImageFetcher;
 }): Promise<AppGeneratedImageJobCreateResult> {
   if (!endpoint) {
@@ -69,7 +103,7 @@ export async function createCoverImageJobForApp({
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(createGenerationPayload({ pack, uploads, ownerId }))
+      body: JSON.stringify(createGenerationPayload({ pack, uploads, ownerId, variant }))
     });
 
     if (!response.ok) {
@@ -97,11 +131,13 @@ export async function getCoverImageJobForApp({
   pack,
   jobId,
   endpoint,
+  variant,
   fetcher = fetch as AppGeneratedImageFetcher
 }: {
   pack: PublishPack;
   jobId: string;
   endpoint?: string;
+  variant?: GeneratedCoverVariant;
   fetcher?: AppGeneratedImageFetcher;
 }): Promise<AppGeneratedImageJobSnapshot> {
   if (!endpoint) {
@@ -153,7 +189,7 @@ export async function getCoverImageJobForApp({
 
     return {
       status,
-      asset: createGeneratedCoverAsset(pack, imageUrl)
+      asset: createGeneratedCoverAsset(pack, imageUrl, variant)
     };
   } catch {
     return {
@@ -168,12 +204,14 @@ export async function generateCoverImageForApp({
   uploads,
   endpoint,
   ownerId,
+  variant,
   fetcher = fetch as AppGeneratedImageFetcher
 }: {
   pack: PublishPack;
   uploads: UploadedAsset[];
   endpoint?: string;
   ownerId?: string;
+  variant?: GeneratedCoverVariant;
   fetcher?: AppGeneratedImageFetcher;
 }): Promise<AppGeneratedImageResult> {
   if (!endpoint) {
@@ -189,7 +227,7 @@ export async function generateCoverImageForApp({
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(createGenerationPayload({ pack, uploads, ownerId }))
+      body: JSON.stringify(createGenerationPayload({ pack, uploads, ownerId, variant }))
     });
 
     if (!response.ok) {
@@ -212,7 +250,7 @@ export async function generateCoverImageForApp({
       source: "remote",
       model: optionalString(body.model),
       storageProvider: optionalString(body.storageProvider),
-      asset: createGeneratedCoverAsset(pack, imageUrl)
+      asset: createGeneratedCoverAsset(pack, imageUrl, variant)
     };
   } catch {
     return {
@@ -225,31 +263,35 @@ export async function generateCoverImageForApp({
 function createGenerationPayload({
   pack,
   uploads,
-  ownerId
+  ownerId,
+  variant
 }: {
   pack: PublishPack;
   uploads: UploadedAsset[];
   ownerId?: string;
+  variant?: GeneratedCoverVariant;
 }) {
   return {
     mode: "seller_cover",
     size: "1024x1024",
-    prompt: buildSellerCoverPrompt(pack),
+    prompt: buildSellerCoverPrompt(pack, variant),
     productImageUrl: findPrimaryProductUrl(uploads),
     ownerId
   };
 }
 
-function buildSellerCoverPrompt(pack: PublishPack) {
+function buildSellerCoverPrompt(pack: PublishPack, variant?: GeneratedCoverVariant) {
   return [
     `Platform: ${pack.platform}`,
     `Pack style: ${pack.style}`,
     `Title options: ${pack.copy.titles.join(" / ")}`,
     `Description: ${pack.copy.description}`,
+    variant ? `Cover variant: ${variant.title}` : "",
+    variant ? variant.promptInstruction : "",
     "Generate one truthful seller cover image.",
     "Keep the product identity, condition, visible wear marks, and accessories honest.",
     "Use a clean mobile-commerce composition with enough space for listing text."
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 function findPrimaryProductUrl(uploads: UploadedAsset[]) {
@@ -257,13 +299,14 @@ function findPrimaryProductUrl(uploads: UploadedAsset[]) {
   return upload?.remoteUrl ?? upload?.uri;
 }
 
-function createGeneratedCoverAsset(pack: PublishPack, imageUrl: string): UploadedAsset {
+function createGeneratedCoverAsset(pack: PublishPack, imageUrl: string, variant?: GeneratedCoverVariant): UploadedAsset {
+  const suffix = variant ? `_${variant.id}` : "";
   return {
-    id: `generated_cover_${pack.id}`,
+    id: `generated_cover_${pack.id}${suffix}`,
     uri: imageUrl,
     remoteUrl: imageUrl,
     mimeType: "image/png",
-    label: "AI 生成封面",
+    label: variant ? `AI 生成封面 · ${variant.title}` : "AI 生成封面",
     width: 1024,
     height: 1024
   };

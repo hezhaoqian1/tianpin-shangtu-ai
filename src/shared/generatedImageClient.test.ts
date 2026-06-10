@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createCoverImageJobForApp,
+  generatedCoverVariants,
   generateCoverImageForApp,
   getCoverImageJobForApp,
   type AppGeneratedImageFetcher
@@ -22,6 +23,15 @@ describe("mobile generated image client", () => {
     ...uploads.slice(1)
   ];
 
+  it("defines three seller-facing cover variants", () => {
+    expect(generatedCoverVariants.map((variant) => variant.id)).toEqual([
+      "xianyu_authentic",
+      "clean_shop",
+      "xiaohongshu_seed"
+    ]);
+    expect(generatedCoverVariants.every((variant) => variant.title && variant.promptInstruction)).toBe(true);
+  });
+
   it("creates a background cover image job without waiting for generation", async () => {
     const fetcher = vi.fn<AppGeneratedImageFetcher>(async () => ({
       ok: true,
@@ -36,6 +46,7 @@ describe("mobile generated image client", () => {
       uploads: remoteUploads,
       endpoint: "http://localhost:3001/api/images/generate",
       ownerId: "seller-1",
+      variant: generatedCoverVariants[1],
       fetcher
     });
 
@@ -44,6 +55,7 @@ describe("mobile generated image client", () => {
     expect(url).toBe("http://localhost:3001/api/images/jobs");
     expect(body.mode).toBe("seller_cover");
     expect(body.productImageUrl).toBe("https://cdn.example.com/uploads/product.jpg");
+    expect(body.prompt).toContain("Clean product main image");
     expect(result.source).toBe("remote");
     if (result.source !== "remote") {
       throw new Error("expected remote job");
@@ -71,6 +83,7 @@ describe("mobile generated image client", () => {
       pack,
       jobId: "img_job_123",
       endpoint: "http://localhost:3001/api/images/generate",
+      variant: generatedCoverVariants[2],
       fetcher
     });
 
@@ -78,10 +91,11 @@ describe("mobile generated image client", () => {
     expect(url).toBe("http://localhost:3001/api/images/jobs/img_job_123");
     expect(result.status).toBe("succeeded");
     expect(result.asset).toMatchObject({
+      id: "generated_cover_pack_authentic_xiaohongshu_seed",
       uri: "https://cdn.example.com/generated/seller-1/cover.png",
       remoteUrl: "https://cdn.example.com/generated/seller-1/cover.png",
       mimeType: "image/png",
-      label: "AI 生成封面"
+      label: "AI 生成封面 · 小红书种草风"
     });
   });
 

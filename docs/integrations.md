@@ -163,6 +163,14 @@ GET /api/images/jobs/{jobId}
 
 The app polls `GET /api/images/jobs/{jobId}` until the job reaches `succeeded` or `failed`. On success, `result.imageUrl` contains the persisted R2 image URL.
 
+The editor currently creates three cover variants as separate jobs:
+
+- Xianyu authentic resale cover.
+- Clean product main image.
+- Xiaohongshu lifestyle seeding cover.
+
+Each completed image is displayed as a selectable card. The seller chooses one with "set as cover"; generation results that were not selected remain available in the editor until the current project is reset.
+
 Variables:
 
 ```env
