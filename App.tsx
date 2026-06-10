@@ -16,6 +16,7 @@ import { TemplateGalleryScreen } from "./src/screens/TemplateGalleryScreen";
 import { UploadScreen } from "./src/screens/UploadScreen";
 import { WorksScreen } from "./src/screens/WorksScreen";
 import { analyzeUploadsForApp, type AppAnalysisSource } from "./src/shared/analysisClient";
+import { createLocalCapabilitySnapshot, getCapabilitiesForApp, type CapabilitySnapshot } from "./src/shared/capabilityClient";
 import { normalizeEditPrompt } from "./src/shared/editConversation";
 import { createEditCommandForApp, type AppEditSource } from "./src/shared/editClient";
 import {
@@ -62,6 +63,7 @@ const uploadEndpoint = process.env.EXPO_PUBLIC_UPLOAD_ENDPOINT ?? "";
 const imageGenerateEndpoint = process.env.EXPO_PUBLIC_IMAGE_GENERATE_ENDPOINT ?? "";
 const projectEndpoint = process.env.EXPO_PUBLIC_PROJECTS_ENDPOINT ?? "";
 const exportEndpoint = process.env.EXPO_PUBLIC_EXPORT_ENDPOINT ?? "";
+const capabilityEndpoint = process.env.EXPO_PUBLIC_CAPABILITIES_ENDPOINT ?? "";
 
 export default function App() {
   const [launchComplete, setLaunchComplete] = useState(false);
@@ -84,6 +86,7 @@ export default function App() {
   const [session, setSession] = useState<UserSession>(() => createGuestSession());
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [exportSaveMessage, setExportSaveMessage] = useState<string | null>(null);
+  const [capabilities, setCapabilities] = useState<CapabilitySnapshot>(() => createLocalCapabilitySnapshot());
 
   const flowProgress = useMemo(() => {
     if (flowStep === "idle") {
@@ -124,6 +127,34 @@ export default function App() {
       canceled = true;
     };
   }, [isAuthenticated, session]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setCapabilities(createLocalCapabilitySnapshot());
+      return undefined;
+    }
+
+    let canceled = false;
+
+    async function loadCapabilities() {
+      const result = await getCapabilitiesForApp({
+        endpoint: capabilityEndpoint
+      });
+
+      if (!canceled) {
+        setCapabilities({
+          generatedAt: result.generatedAt,
+          items: result.items
+        });
+      }
+    }
+
+    void loadCapabilities();
+
+    return () => {
+      canceled = true;
+    };
+  }, [isAuthenticated]);
 
   function completeAuth() {
     setSession(createDemoUserSession());
@@ -563,7 +594,7 @@ export default function App() {
     }
 
     if (activeTab === "account") {
-      return <AccountScreen session={session} onLogout={logout} />;
+      return <AccountScreen session={session} capabilities={capabilities} onLogout={logout} />;
     }
 
     return (

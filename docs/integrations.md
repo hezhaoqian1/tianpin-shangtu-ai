@@ -292,7 +292,50 @@ Expo variable:
 EXPO_PUBLIC_EXPORT_ENDPOINT=https://your-service.up.railway.app/api/exports/prepare
 ```
 
-## 7. Server Image Processing
+## 7. Capability Status
+
+Purpose:
+
+- Show which production capabilities are ready, configured, still mock, or waiting for configuration.
+- Help the Account tab and deployment smoke tests catch missing providers without exposing secrets.
+
+Code:
+
+- `src/server/capabilityRoute.ts`
+- `src/shared/capabilityClient.ts`
+- `src/screens/AccountScreen.tsx`
+
+API:
+
+```text
+GET /api/capabilities
+```
+
+Response:
+
+```json
+{
+  "generatedAt": "2026-06-10T00:00:00.000Z",
+  "items": [
+    {
+      "id": "text_edit",
+      "label": "AI 对话编辑",
+      "status": "configured",
+      "detail": "OpenAI-compatible / gpt-5-mini"
+    }
+  ]
+}
+```
+
+The response never includes API keys, storage credentials, or raw secret values.
+
+Expo variable:
+
+```env
+EXPO_PUBLIC_CAPABILITIES_ENDPOINT=https://your-service.up.railway.app/api/capabilities
+```
+
+## 8. Server Image Processing
 
 Purpose:
 

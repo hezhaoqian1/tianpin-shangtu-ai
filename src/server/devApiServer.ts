@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 
 import { handleAnalyzeRequest } from "./analyzeRoute";
+import { handleGetCapabilitiesRequest } from "./capabilityRoute";
 import { handleEditRequest } from "./editRoute";
 import { handlePrepareExportRequest } from "./exportRoute";
 import {
@@ -28,6 +29,12 @@ const server = createServer(async (request, response) => {
 
   if (request.method === "GET" && request.url === "/health") {
     writeJson(response, 200, { ok: true });
+    return;
+  }
+
+  if (request.method === "GET" && request.url === "/api/capabilities") {
+    const result = handleGetCapabilitiesRequest();
+    writeJson(response, result.status, result.body);
     return;
   }
 
